@@ -199,6 +199,9 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border
           <tr><td>Régime réel (recommandé ici)</td><td>Amortissement + toutes charges déductibles</td></tr>
         </table>
       </div>
+      <div style="display:flex; justify-content:center; margin-top:1.25rem;">
+        <button type="button" onclick="downloadBusinessPlan('lcd')" style="padding:10px 16px; border:none; border-radius:999px; background:var(--accent); color:white; font-weight:700; cursor:pointer;">Télécharger le BP</button>
+      </div>
     </div>
   </div>
 
@@ -258,6 +261,9 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border
       <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:6px;">Montant mensuel net estimé</div>
       <div style="font-size:22px; font-weight:800; color:var(--success);" id="monthlyNetLT">0 €/mois</div>
       <div style="font-size:12px; color:var(--text-sec); margin-top:6px;" id="monthlyNetLTDetail">Selon le régime fiscal sélectionné</div>
+    </div>
+    <div style="display:flex; justify-content:center; margin-top:1.25rem;">
+      <button type="button" onclick="downloadBusinessPlan('longterm')" style="padding:10px 16px; border:none; border-radius:999px; background:var(--accent); color:white; font-weight:700; cursor:pointer;">Télécharger le BP</button>
     </div>
   </div>
 
@@ -638,6 +644,230 @@ function drawHBars(canvasId, data) {
     ctx.textAlign = 'left';
     ctx.fillText(fr(d.value) + ' €', PAD_L + barW + 6, y + barH / 2 + 4);
   }
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getControlData(scopeSelector) {
+  var container = document.querySelector(scopeSelector);
+  if (!container) return [];
+  var rows = [];
+  var controls = container.querySelectorAll('input[type="range"], select');
+  Array.prototype.forEach.call(controls, function(input) {
+    var row = input.closest('.srow');
+    var labelEl = row && row.querySelector('.slbl') ? row.querySelector('.slbl') : null;
+    var valueEl = row && row.querySelector('.sval') ? row.querySelector('.sval') : null;
+    var label = labelEl ? labelEl.textContent.trim() : (input.id || 'Valeur');
+    var value = '';
+    if (input.tagName === 'SELECT') {
+      value = input.options[input.selectedIndex] ? input.options[input.selectedIndex].textContent.trim() : input.value;
+    } else if (valueEl) {
+      value = valueEl.textContent.trim();
+    } else {
+      value = input.value;
+    }
+    rows.push({ label: label, value: value, id: input.id });
+  });
+  return rows;
+}
+
+function collectScenarioData(mode) {
+  if (mode === 'lcd') {
+    var prixT2BS = [];
+    var prixT2HS = [];
+    for (var i = 1; i <= 7; i++) {
+      prixT2BS.push(parseFloat(el('prixT2BS' + i).value));
+      prixT2HS.push(parseFloat(el('prixT2HS' + i).value));
+    }
+
+    var pT3B = val('prixT3B');
+    var pT3H = val('prixT3H');
+    var tBS  = val('txBS') / 100;
+    var tHS  = val('txHS') / 100;
+    var taux = val('taux') / 100;
+    var dur  = val('duree');
+
+    var revT2BS_total = 0;
+    var revT2HS_total = 0;
+    for (var j = 0; j < 7; j++) {
+      revT2BS_total += Math.round(prixT2BS[j] * JBS * tBS);
+      revT2HS_total += Math.round(prixT2HS[j] * JHS * tHS);
+    }
+
+    var revT3BS = Math.round(pT3B * JBS * tBS);
+    var revT3HS = Math.round(pT3H * JHS * tHS);
+    var revTotal = revT2BS_total + revT2HS_total + revT3BS + revT3HS;
+
+    var mens = Math.round(mensualite(CAPITAL, taux, dur));
+    var annCredit = mens * 12;
+    var taxeFonc = val('charTaxe');
+    var assur = val('charAssur');
+    var eau = val('charEau');
+    var elec = val('charElec');
+    var internet = val('charInternet');
+    var entretien = val('charEnt');
+    var commRate = val('charComm');
+    var platef = Math.round(revTotal * commRate / 100);
+    var cfe = val('charCfe');
+    var coutMenage = val('charMenage');
+
+    var nuitesT2BS = Math.round(7 * JBS * tBS);
+    var nuitesT2HS = Math.round(7 * JHS * tHS);
+    var nuitesT3BS = Math.round(JBS * tBS);
+    var nuitesT3HS = Math.round(JHS * tHS);
+    var nuitesTotales = nuitesT2BS + nuitesT2HS + nuitesT3BS + nuitesT3HS;
+    var nettoyageCount = Math.round(nuitesTotales / 3);
+    var chargeMenageTotal = Math.round(nettoyageCount * coutMenage);
+
+    var totalChg = annCredit + taxeFonc + assur + eau + elec + internet + entretien + platef + cfe + chargeMenageTotal;
+    var cf = revTotal - totalChg;
+    var fiscOpt = el('fiscOpt') ? el('fiscOpt').value : 'micro';
+    var baseImposable = 0;
+    var impots = 0;
+    if (fiscOpt === 'micro') {
+      baseImposable = Math.round(revTotal * 0.5);
+      impots = Math.round(baseImposable * 0.25);
+    } else if (fiscOpt === 'reel') {
+      var amort = Math.round(CAPITAL / 30);
+      var interets = Math.round(CAPITAL * taux);
+      baseImposable = Math.max(0, revTotal - amort - interets - totalChg);
+      impots = Math.round(baseImposable * 0.25);
+    } else {
+      var lmpEligible = revTotal > 23000;
+      baseImposable = Math.max(0, revTotal - totalChg);
+      impots = lmpEligible ? Math.round(baseImposable * 0.20) : Math.round(baseImposable * 0.25);
+    }
+    var cfAfterTax = cf - impots;
+
+    return {
+      mode: 'lcd',
+      title: 'Business plan — Stratégie LCD',
+      filename: 'bp-lcd-' + Date.now() + '.html',
+      generatedAt: new Date().toLocaleString('fr-FR'),
+      inputs: getControlData('#mode-lcd'),
+      summary: [
+        { label: 'Revenus bruts annuels', value: fr(revTotal) + ' €' },
+        { label: 'Charges annuelles', value: fr(totalChg) + ' €' },
+        { label: 'Cash-flow annuel', value: sign(cfAfterTax) + fr(cfAfterTax) + ' €' },
+        { label: 'Cash-flow mensuel', value: sign(Math.round(cfAfterTax / 12)) + fr(Math.round(cfAfterTax / 12)) + ' €/mois' },
+        { label: 'Régime fiscal', value: fiscOpt === 'micro' ? 'Micro-BIC' : (fiscOpt === 'reel' ? 'LMNP réel' : 'LMP possible') },
+        { label: 'Verdict', value: cfAfterTax >= 5000 ? 'Excellent cash-flow' : (cfAfterTax >= 0 ? 'Équilibre' : 'Effort mensuel nécessaire') }
+      ],
+      chargesRows: [
+        { label: 'Remboursement prêt', value: fr(annCredit) + ' €/an' },
+        { label: 'Taxe foncière', value: fr(taxeFonc) + ' €/an' },
+        { label: 'Assurance', value: fr(assur) + ' €/an' },
+        { label: 'Eau', value: fr(eau) + ' €/an' },
+        { label: 'Électricité', value: fr(elec) + ' €/an' },
+        { label: 'Internet', value: fr(internet) + ' €/an' },
+        { label: 'Entretien', value: fr(entretien) + ' €/an' },
+        { label: 'Commission plateforme', value: fr(platef) + ' €/an' },
+        { label: 'CFE', value: fr(cfe) + ' €/an' },
+        { label: 'Ménage', value: fr(chargeMenageTotal) + ' €/an' }
+      ]
+    };
+  }
+
+  var loyerT2_total = 0;
+  for (var i = 1; i <= 7; i++) {
+    loyerT2_total += val('loyerT2_' + i);
+  }
+  var loyerT3 = val('loyerT3');
+  var revLT = Math.round((loyerT2_total + loyerT3) * 12);
+  var tauxLT = val('tauxLT') / 100;
+  var dureeLT = val('dureeLT');
+  var mensLT = Math.round(mensualite(CAPITAL, tauxLT, dureeLT));
+  var annCreditLT = mensLT * 12;
+  var taxeFoncLT = val('charTaxeLT');
+  var assurLT = val('charAssurLT');
+  var eauLT = val('charEauLT');
+  var elecLT = val('charElecLT');
+  var internetLT = val('charInternetLT');
+  var entretienLT = val('charEntLT');
+  var cfeLT = val('charCfeLT');
+  var coproLT = val('charCoproLT');
+  var autresLT = val('charAutresLT');
+  var totalChgLT = annCreditLT + taxeFoncLT + assurLT + eauLT + elecLT + internetLT + entretienLT + cfeLT + coproLT + autresLT;
+  var cfLT = revLT - totalChgLT;
+  var fiscOptLT = el('fiscOptLT') ? el('fiscOptLT').value : 'micro';
+  var baseImposableLT = 0;
+  var impotsLT = 0;
+  if (fiscOptLT === 'micro') {
+    baseImposableLT = Math.round(revLT * 0.5);
+    impotsLT = Math.round(baseImposableLT * 0.25);
+  } else if (fiscOptLT === 'reel') {
+    var amortLT = Math.round((ACHAT + TRAVAUX) / 30);
+    var interetsLT = Math.round(CAPITAL * tauxLT);
+    baseImposableLT = Math.max(0, revLT - amortLT - interetsLT - totalChgLT);
+    impotsLT = Math.round(baseImposableLT * 0.25);
+  } else {
+    var lmpEligible = revLT > 23000;
+    baseImposableLT = Math.max(0, revLT - totalChgLT);
+    impotsLT = lmpEligible ? Math.round(baseImposableLT * 0.20) : Math.round(baseImposableLT * 0.25);
+  }
+  var cfLTAfterTax = cfLT - impotsLT;
+
+  return {
+    mode: 'longterm',
+    title: 'Business plan — Location longue durée',
+    filename: 'bp-longterm-' + Date.now() + '.html',
+    generatedAt: new Date().toLocaleString('fr-FR'),
+    inputs: getControlData('#mode-longterm'),
+    summary: [
+      { label: 'Revenus locatifs annuels', value: fr(revLT) + ' €' },
+      { label: 'Charges annuelles', value: fr(totalChgLT) + ' €' },
+      { label: 'Impôt théorique', value: fr(impotsLT) + ' €' },
+      { label: 'Cash-flow annuel', value: sign(cfLTAfterTax) + fr(cfLTAfterTax) + ' €' },
+      { label: 'Cash-flow mensuel', value: sign(Math.round(cfLTAfterTax / 12)) + fr(Math.round(cfLTAfterTax / 12)) + ' €/mois' },
+      { label: 'Régime fiscal', value: fiscOptLT === 'micro' ? 'Micro-BIC' : (fiscOptLT === 'reel' ? 'LMNP réel' : 'LMP possible') }
+    ],
+    chargesRows: [
+      { label: 'Remboursement prêt', value: fr(annCreditLT) + ' €/an' },
+      { label: 'Taxe foncière', value: fr(taxeFoncLT) + ' €/an' },
+      { label: 'Assurance', value: fr(assurLT) + ' €/an' },
+      { label: 'Eau', value: fr(eauLT) + ' €/an' },
+      { label: 'Électricité', value: fr(elecLT) + ' €/an' },
+      { label: 'Internet', value: fr(internetLT) + ' €/an' },
+      { label: 'Entretien', value: fr(entretienLT) + ' €/an' },
+      { label: 'Charges copropriété', value: fr(coproLT) + ' €/an' },
+      { label: 'CFE', value: fr(cfeLT) + ' €/an' },
+      { label: 'Autres charges', value: fr(autresLT) + ' €/an' }
+    ]
+  };
+}
+
+function buildBusinessPlanHtml(data) {
+  var inputsHtml = data.inputs.map(function(item) {
+    return '<tr><td>' + escapeHtml(item.label) + '</td><td>' + escapeHtml(item.value) + '</td></tr>';
+  }).join('');
+  var summaryHtml = data.summary.map(function(item) {
+    return '<tr><td>' + escapeHtml(item.label) + '</td><td>' + escapeHtml(item.value) + '</td></tr>';
+  }).join('');
+  var chargesHtml = data.chargesRows.map(function(item) {
+    return '<tr><td>' + escapeHtml(item.label) + '</td><td>' + escapeHtml(item.value) + '</td></tr>';
+  }).join('');
+  return '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>' + escapeHtml(data.title) + '</title><style>body{font-family:Arial,sans-serif;line-height:1.45;padding:24px;color:#172033}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid #d8dce6;padding:8px 10px;text-align:left}th{background:#f3f5f9}h1,h2{margin-bottom:8px}small{color:#657085}</style></head><body><h1>' + escapeHtml(data.title) + '</h1><p><strong>Généré le :</strong> ' + escapeHtml(data.generatedAt) + '</p><h2>Résumé du prévisionnel</h2><table><tbody>' + summaryHtml + '</tbody></table><h2>Données sélectionnées</h2><table><tbody>' + inputsHtml + '</tbody></table><h2>Prévisionnel de charges annuelles</h2><table><tbody>' + chargesHtml + '</tbody></table></body></html>';
+}
+
+function downloadBusinessPlan(mode) {
+  var data = collectScenarioData(mode);
+  var html = buildBusinessPlanHtml(data);
+  var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  link.href = url;
+  link.download = data.filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 // ── rendu principal ──────────────────────────────────────────────
