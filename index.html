@@ -199,7 +199,8 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border
           <tr><td>Régime réel (recommandé ici)</td><td>Amortissement + toutes charges déductibles</td></tr>
         </table>
       </div>
-      <div style="display:flex; justify-content:center; margin-top:1.25rem;">
+      <div style="display:flex; flex-direction:column; gap:10px; align-items:center; margin-top:1.25rem;">
+        <input id="bpTitleLcd" type="text" placeholder="Titre du business plan" style="width:min(100%, 320px); border:1px solid var(--border); border-radius:999px; padding:10px 14px; font-size:13px;" />
         <button type="button" onclick="downloadBusinessPlan('lcd')" style="padding:10px 16px; border:none; border-radius:999px; background:var(--accent); color:white; font-weight:700; cursor:pointer;">Télécharger le BP</button>
       </div>
     </div>
@@ -262,7 +263,8 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border
       <div style="font-size:22px; font-weight:800; color:var(--success);" id="monthlyNetLT">0 €/mois</div>
       <div style="font-size:12px; color:var(--text-sec); margin-top:6px;" id="monthlyNetLTDetail">Selon le régime fiscal sélectionné</div>
     </div>
-    <div style="display:flex; justify-content:center; margin-top:1.25rem;">
+    <div style="display:flex; flex-direction:column; gap:10px; align-items:center; margin-top:1.25rem;">
+      <input id="bpTitleLt" type="text" placeholder="Titre du business plan" style="width:min(100%, 320px); border:1px solid var(--border); border-radius:999px; padding:10px 14px; font-size:13px;" />
       <button type="button" onclick="downloadBusinessPlan('longterm')" style="padding:10px 16px; border:none; border-radius:999px; background:var(--accent); color:white; font-weight:700; cursor:pointer;">Télécharger le BP</button>
     </div>
   </div>
@@ -272,6 +274,7 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border
   <footer>Simulation indicative — données marché Gréoux-les-Bains 2026 · Consultez un expert-comptable pour la fiscalité</footer>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 // ── constantes ──────────────────────────────────────────────────
 var ACHAT = 600000, TRAVAUX = 50000, FN = Math.round(600000 * 0.075);
@@ -843,31 +846,123 @@ function collectScenarioData(mode) {
   };
 }
 
-function buildBusinessPlanHtml(data) {
-  var inputsHtml = data.inputs.map(function(item) {
-    return '<tr><td>' + escapeHtml(item.label) + '</td><td>' + escapeHtml(item.value) + '</td></tr>';
-  }).join('');
-  var summaryHtml = data.summary.map(function(item) {
-    return '<tr><td>' + escapeHtml(item.label) + '</td><td>' + escapeHtml(item.value) + '</td></tr>';
-  }).join('');
-  var chargesHtml = data.chargesRows.map(function(item) {
-    return '<tr><td>' + escapeHtml(item.label) + '</td><td>' + escapeHtml(item.value) + '</td></tr>';
-  }).join('');
-  return '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>' + escapeHtml(data.title) + '</title><style>body{font-family:Arial,sans-serif;line-height:1.45;padding:24px;color:#172033}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid #d8dce6;padding:8px 10px;text-align:left}th{background:#f3f5f9}h1,h2{margin-bottom:8px}small{color:#657085}</style></head><body><h1>' + escapeHtml(data.title) + '</h1><p><strong>Généré le :</strong> ' + escapeHtml(data.generatedAt) + '</p><h2>Résumé du prévisionnel</h2><table><tbody>' + summaryHtml + '</tbody></table><h2>Données sélectionnées</h2><table><tbody>' + inputsHtml + '</tbody></table><h2>Prévisionnel de charges annuelles</h2><table><tbody>' + chargesHtml + '</tbody></table></body></html>';
+function slugify(text) {
+  return String(text || 'business-plan').toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'business-plan';
+}
+
+function getDocumentTitle(mode) {
+  var input = document.getElementById(mode === 'lcd' ? 'bpTitleLcd' : 'bpTitleLt');
+  var text = input && input.value ? input.value.trim() : '';
+  return text || (mode === 'lcd' ? 'Business plan LCD' : 'Business plan location longue durée');
+}
+
+function buildRtfDocument(data, title) {
+  function esc(text) {
+    return String(text).replace(/\\/g, '\\\\').replace(/\{/g, '\\\{').replace(/\}/g, '\\\}');
+  }
+  var lines = [];
+  lines.push('{\\rtf1\\ansi\\deff0');
+  lines.push('{\\fonttbl{\\f0 Arial;}}');
+  lines.push('\\viewkind4\\uc1\\pard\\sa120\\sl276\\slmult1\\f0\\fs24 ' + esc(title) + ' \\par');
+  lines.push('\\pard\\fs20 ' + esc(data.generatedAt) + ' \\par\\par');
+  lines.push('\\b Résumé du prévisionnel \\b0\\par');
+  data.summary.forEach(function(item) {
+    lines.push(esc(item.label) + ' : ' + esc(item.value) + ' \\par');
+  });
+  lines.push('\\par\\b Données sélectionnées \\b0\\par');
+  data.inputs.forEach(function(item) {
+    lines.push(esc(item.label) + ' : ' + esc(item.value) + ' \\par');
+  });
+  lines.push('\\par\\b Prévisionnel de charges annuelles \\b0\\par');
+  data.chargesRows.forEach(function(item) {
+    lines.push(esc(item.label) + ' : ' + esc(item.value) + ' \\par');
+  });
+  lines.push('}');
+  return lines.join('');
+}
+
+function buildPdfDocument(data, title) {
+  var pdf = new window.jspdf.jsPDF({ unit: 'pt', format: 'a4' });
+  var pageWidth = pdf.internal.pageSize.getWidth();
+  var pageHeight = pdf.internal.pageSize.getHeight();
+  var margin = 40;
+  var y = 50;
+  var lineHeight = 16;
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(16);
+  pdf.text(title, margin, y);
+  y += 24;
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(10);
+  pdf.text(data.generatedAt, margin, y);
+  y += 24;
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(12);
+  pdf.text('Résumé du prévisionnel', margin, y);
+  y += 16;
+
+  pdf.setFont('helvetica', 'normal');
+  data.summary.forEach(function(item) {
+    if (y > pageHeight - 40) {
+      pdf.addPage();
+      y = 50;
+    }
+    pdf.text(item.label + ' : ' + item.value, margin, y);
+    y += lineHeight;
+  });
+
+  y += 8;
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Données sélectionnées', margin, y);
+  y += 16;
+  pdf.setFont('helvetica', 'normal');
+  data.inputs.forEach(function(item) {
+    if (y > pageHeight - 40) {
+      pdf.addPage();
+      y = 50;
+    }
+    pdf.text(item.label + ' : ' + item.value, margin, y);
+    y += lineHeight;
+  });
+
+  y += 8;
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Prévisionnel de charges annuelles', margin, y);
+  y += 16;
+  pdf.setFont('helvetica', 'normal');
+  data.chargesRows.forEach(function(item) {
+    if (y > pageHeight - 40) {
+      pdf.addPage();
+      y = 50;
+    }
+    pdf.text(item.label + ' : ' + item.value, margin, y);
+    y += lineHeight;
+  });
+
+  return pdf;
 }
 
 function downloadBusinessPlan(mode) {
   var data = collectScenarioData(mode);
-  var html = buildBusinessPlanHtml(data);
-  var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  var url = URL.createObjectURL(blob);
-  var link = document.createElement('a');
-  link.href = url;
-  link.download = data.filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  var title = getDocumentTitle(mode);
+  var safeTitle = slugify(title);
+
+  var pdf = buildPdfDocument(data, title);
+  pdf.save(safeTitle + '.pdf');
+
+  var rtf = buildRtfDocument(data, title);
+  var rtfBlob = new Blob([rtf], { type: 'application/rtf;charset=utf-8' });
+  var rtfUrl = URL.createObjectURL(rtfBlob);
+  var rtfLink = document.createElement('a');
+  rtfLink.href = rtfUrl;
+  rtfLink.download = safeTitle + '.doc';
+  document.body.appendChild(rtfLink);
+  rtfLink.click();
+  document.body.removeChild(rtfLink);
+  URL.revokeObjectURL(rtfUrl);
 }
 
 // ── rendu principal ──────────────────────────────────────────────
