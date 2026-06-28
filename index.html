@@ -860,23 +860,28 @@ function buildRtfDocument(data, title) {
   function esc(text) {
     return String(text).replace(/\\/g, '\\\\').replace(/\{/g, '\\\{').replace(/\}/g, '\\\}');
   }
+  function addSection(lines, heading, items) {
+    lines.push('\\par\\b ' + esc(heading) + ' \\b0\\par');
+    items.forEach(function(item) {
+      lines.push(esc(item.label) + ' : ' + esc(item.value) + ' \\par');
+    });
+  }
   var lines = [];
   lines.push('{\\rtf1\\ansi\\deff0');
   lines.push('{\\fonttbl{\\f0 Arial;}}');
-  lines.push('\\viewkind4\\uc1\\pard\\sa120\\sl276\\slmult1\\f0\\fs24 ' + esc(title) + ' \\par');
+  lines.push('\\viewkind4\\uc1\\pard\\sa120\\sl276\\slmult1\\f0\\fs24 \\b ' + esc(title) + ' \\b0\\par');
   lines.push('\\pard\\fs20 ' + esc(data.generatedAt) + ' \\par\\par');
-  lines.push('\\b Résumé du prévisionnel \\b0\\par');
-  data.summary.forEach(function(item) {
-    lines.push(esc(item.label) + ' : ' + esc(item.value) + ' \\par');
-  });
-  lines.push('\\par\\b Données sélectionnées \\b0\\par');
-  data.inputs.forEach(function(item) {
-    lines.push(esc(item.label) + ' : ' + esc(item.value) + ' \\par');
-  });
-  lines.push('\\par\\b Prévisionnel de charges annuelles \\b0\\par');
-  data.chargesRows.forEach(function(item) {
-    lines.push(esc(item.label) + ' : ' + esc(item.value) + ' \\par');
-  });
+  lines.push('\\b Présentation de l’opération \\b0\\par');
+  lines.push('Ce document présente la stratégie ' + esc(data.mode === 'lcd' ? 'LCD / meublé de tourisme' : 'location longue durée') + ' avec les hypothèses sélectionnées dans le simulateur. \\par');
+  lines.push('\\par\\b Résumé exécutif \\b0\\par');
+  addSection(lines, 'Indicateurs clés', data.summary);
+  addSection(lines, 'Données de départ', data.inputs);
+  addSection(lines, 'Prévisionnel de charges annuelles', data.chargesRows);
+  lines.push('\\par\\b Analyse synthétique \\b0\\par');
+  var conclusion = data.mode === 'lcd'
+    ? 'Le scénario LCD est évalué à partir des revenus de nuitées, du financement et des charges opérationnelles. Le cash-flow dépend directement du niveau des tarifs et du taux d’occupation.'
+    : 'Le scénario de location longue durée repose sur des loyers stables, un financement structuré et des charges prévisibles. La viabilité du projet dépend surtout du niveau de loyer et de la charge fiscale.';
+  lines.push(esc(conclusion) + ' \\par');
   lines.push('}');
   return lines.join('');
 }
@@ -887,60 +892,88 @@ function buildPdfDocument(data, title) {
   var pageHeight = pdf.internal.pageSize.getHeight();
   var margin = 40;
   var y = 50;
-  var lineHeight = 16;
+  var lineHeight = 14;
 
+  function ensureSpace(additionalLines) {
+    if (y + additionalLines * lineHeight > pageHeight - 40) {
+      pdf.addPage();
+      y = 50;
+      return true;
+    }
+    return false;
+  }
+
+  function addHeading(text) {
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(12);
+    pdf.text(text, margin, y);
+    y += 18;
+  }
+
+  function addParagraph(text, size) {
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(size || 10);
+    var wrapped = pdf.splitTextToSize(text, pageWidth - margin * 2);
+    wrapped.forEach(function(line) {
+      if (y > pageHeight - 40) {
+        pdf.addPage();
+        y = 50;
+      }
+      pdf.text(line, margin, y);
+      y += lineHeight;
+    });
+  }
+
+  function addList(items) {
+    items.forEach(function(item) {
+      if (y > pageHeight - 40) {
+        pdf.addPage();
+        y = 50;
+      }
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9.5);
+      var text = item.label + ' : ' + item.value;
+      var wrapped = pdf.splitTextToSize(text, pageWidth - margin * 2 - 16);
+      wrapped.forEach(function(line) {
+        if (y > pageHeight - 40) {
+          pdf.addPage();
+          y = 50;
+        }
+        pdf.text(line, margin + 8, y);
+        y += lineHeight;
+      });
+    });
+  }
+
+  pdf.setFillColor(30, 74, 145);
+  pdf.rect(0, 0, pageWidth, 80, 'F');
+  pdf.setTextColor(255, 255, 255);
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(16);
-  pdf.text(title, margin, y);
-  y += 24;
-
+  pdf.setFontSize(18);
+  pdf.text(title, margin, 34);
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(10);
-  pdf.text(data.generatedAt, margin, y);
-  y += 24;
+  pdf.text(data.generatedAt, margin, 56);
+  pdf.setTextColor(0, 0, 0);
+  y = 110;
 
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(12);
-  pdf.text('Résumé du prévisionnel', margin, y);
-  y += 16;
+  addHeading('Présentation de l’opération');
+  addParagraph('Ce business plan synthétise le scénario ' + (data.mode === 'lcd' ? 'LCD / meublé de tourisme' : 'location longue durée') + ' à partir des données sélectionnées dans le simulateur. Il intègre les hypothèses de revenus, de financement, de charges et de fiscalité afin de proposer une vue claire de la rentabilité attendue.');
 
-  pdf.setFont('helvetica', 'normal');
-  data.summary.forEach(function(item) {
-    if (y > pageHeight - 40) {
-      pdf.addPage();
-      y = 50;
-    }
-    pdf.text(item.label + ' : ' + item.value, margin, y);
-    y += lineHeight;
-  });
+  addHeading('Résumé exécutif');
+  addList(data.summary);
 
-  y += 8;
-  pdf.setFont('helvetica', 'bold');
-  pdf.text('Données sélectionnées', margin, y);
-  y += 16;
-  pdf.setFont('helvetica', 'normal');
-  data.inputs.forEach(function(item) {
-    if (y > pageHeight - 40) {
-      pdf.addPage();
-      y = 50;
-    }
-    pdf.text(item.label + ' : ' + item.value, margin, y);
-    y += lineHeight;
-  });
+  addHeading('Données de départ');
+  addList(data.inputs);
 
-  y += 8;
-  pdf.setFont('helvetica', 'bold');
-  pdf.text('Prévisionnel de charges annuelles', margin, y);
-  y += 16;
-  pdf.setFont('helvetica', 'normal');
-  data.chargesRows.forEach(function(item) {
-    if (y > pageHeight - 40) {
-      pdf.addPage();
-      y = 50;
-    }
-    pdf.text(item.label + ' : ' + item.value, margin, y);
-    y += lineHeight;
-  });
+  addHeading('Prévisionnel de charges annuelles');
+  addList(data.chargesRows);
+
+  addHeading('Analyse synthétique');
+  var conclusion = data.mode === 'lcd'
+    ? 'Le scénario LCD repose sur la capacité à convertir les nuits de location en revenus réguliers. La performance dépend fortement du niveau de prix, du taux d’occupation, du financement et de la maîtrise des charges opérationnelles.'
+    : 'Le scénario de location longue durée repose sur des revenus locatifs stables et une structure de charges maîtrisée. La viabilité du projet dépend du niveau de loyer, de la capacité à absorber les frais et du régime fiscal retenu.';
+  addParagraph(conclusion);
 
   return pdf;
 }
