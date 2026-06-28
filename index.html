@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Simulateur LCD — Gréoux-les-Bains</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8f7f4; --surface: #ffffff; --surface-alt: #f1f0ec;
+  --border: rgba(0,0,0,0.10); --border-strong: rgba(0,0,0,0.20);
+  --text: #0b0b0b; --text-sec: #52514e; --text-muted: #898781;
+  --accent: #185fa5; --accent-bg: #e6f1fb;
+  --success: #0f6e56; --success-bg: #e1f5ee;
+  --danger: #a32d2d; --danger-bg: #fcebeb;
+  --warning: #854f0b; --warning-bg: #faeeda;
+  --radius: 8px;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6; min-height: 100vh; overflow-x: hidden; }
+.container { max-width: 820px; margin: 0 auto; padding: 2rem 1.5rem; }
+button, input, select, textarea { touch-action: manipulation; }
+h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.subtitle { color: var(--text-sec); font-size: 14px; margin-bottom: 2rem; }
+.tabs { display: flex; gap: 8px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.tab { padding: 7px 16px; border-radius: var(--radius); border: 1px solid var(--border-strong); font-size: 13px; cursor: pointer; background: transparent; color: var(--text-sec); font-family: inherit; }
+.tab.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.stitle { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .07em; margin: 1.5rem 0 10px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+.kpi { background: var(--surface-alt); border-radius: var(--radius); padding: 14px 16px; }
+.kpi-lbl { font-size: 12px; color: var(--text-sec); margin-bottom: 4px; }
+.kpi-val { font-size: 20px; font-weight: 700; color: var(--text); }
+.kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+.kpi.pos .kpi-val { color: var(--success); }
+.kpi.neg .kpi-val { color: var(--danger); }
+.kpi.acc .kpi-val { color: var(--accent); }
+.srow { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.slbl { font-size: 13px; color: var(--text-sec); min-width: 200px; }
+.sval { font-size: 13px; font-weight: 700; min-width: 65px; text-align: right; color: var(--text); }
+input[type=range] { flex: 1; accent-color: var(--accent); cursor: pointer; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table tr { border-bottom: 1px solid var(--border); }
+table tr:last-child { border-bottom: none; }
+table td { padding: 9px 6px; color: var(--text-sec); }
+table td:last-child { text-align: right; font-weight: 600; color: var(--text); }
+table tr.thead td { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; background: var(--surface-alt); padding: 8px 6px; }
+table tr.ttotal td { font-weight: 700; border-top: 2px solid var(--border-strong); background: var(--surface-alt); color: var(--text); }
+table tr.ttotal td:last-child { color: var(--success); }
+.chart-wrap { width: 100%; margin-top: 1rem; }
+canvas { display: block; width: 100% !important; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-sec); margin-bottom: 8px; }
+.legend span { display: flex; align-items: center; gap: 5px; }
+.dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+.box { border-radius: var(--radius); padding: 12px 16px; font-size: 13px; margin-top: 1rem; line-height: 1.6; }
+.box.ok { background: var(--success-bg); color: var(--success); }
+.box.warn { background: var(--warning-bg); color: var(--warning); }
+.box.info { background: var(--accent-bg); color: var(--accent); }
+.panel { display: none; }
+.panel.active { display: block; }
+footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); text-align: center; }
+@media (max-width: 640px) {
+  .container { padding: 1rem 0.85rem; }
+  .tabs { gap: 6px; }
+  .tab { flex: 1 1 calc(50% - 6px); text-align: center; padding: 8px 10px; }
+  .srow { flex-direction: column; align-items: stretch; gap: 8px; }
+  .slbl { min-width: 0; width: 100%; }
+  .sval { min-width: 0; text-align: left; }
+  input[type=range] { width: 100%; }
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card { padding: 0.9rem 0.95rem; }
+  canvas { max-width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Simulateur LCD — Gréoux-les-Bains</h1>
+  <p class="subtitle">Domaine 250 m² hab. · 5 000 m² terrain · 7 T2 + 1 T3 · Piscine · Pétanque<br>Achat 600 000 € + 50 000 € travaux · Financement total ~698 000 €</p>
+
+  <div class="tabs">
+    <button class="tab active" type="button" data-tab="revenus" onclick="showTab('revenus', this)" onmousedown="showTab('revenus', this)" ontouchstart="showTab('revenus', this)">Revenus</button>
+    <button class="tab" type="button" data-tab="credit" onclick="showTab('credit', this)" onmousedown="showTab('credit', this)" ontouchstart="showTab('credit', this)">Crédit &amp; charges</button>
+    <button class="tab" type="button" data-tab="bilan" onclick="showTab('bilan', this)" onmousedown="showTab('bilan', this)" ontouchstart="showTab('bilan', this)">Bilan annuel</button>
+    <button class="tab" type="button" data-tab="fisca" onclick="showTab('fisca', this)" onmousedown="showTab('fisca', this)" ontouchstart="showTab('fisca', this)">Fiscalité LMNP</button>
+  </div>
+
+  <!-- REVENUS -->
+  <div id="tab-revenus" class="panel active">
+    <div class="stitle">Paramètres locatifs — T2 (Basse saison: Nov-Avr)</div>
+    <div class="card" id="t2-bs-card"></div>
+    <div class="stitle">Paramètres locatifs — T2 (Haute saison: Mai-Oct)</div>
+    <div class="card" id="t2-hs-card"></div>
+    <div class="stitle">Paramètres locatifs — T3 (Basse saison: Nov-Avr)</div>
+    <div class="card">
+      <div class="srow"><span class="slbl">Prix/nuit T3 — basse saison</span><input type="range" min="1" max="160" value="110" step="1" id="prixT3B"><span class="sval" id="valT3B">110 €</span></div>
+    </div>
+    <div class="stitle">Paramètres locatifs — T3 (Haute saison: Mai-Oct)</div>
+    <div class="card">
+      <div class="srow"><span class="slbl">Prix/nuit T3 — haute saison</span><input type="range" min="1" max="300" value="200" step="1" id="prixT3H"><span class="sval" id="valT3H">200 €</span></div>
+    </div>
+    <div class="stitle">Taux d'occupation</div>
+    <div class="card">
+      <div class="srow"><span class="slbl">Taux occupation basse saison (Nov-Avr)</span><input type="range" min="1" max="80" value="50" step="1" id="txBS"><span class="sval" id="valTxBS">50%</span></div>
+      <div class="srow"><span class="slbl">Taux occupation haute saison (Mai-Oct)</span><input type="range" min="1" max="100" value="80" step="1" id="txHS"><span class="sval" id="valTxHS">80%</span></div>
+    </div>
+    <div class="stitle">Revenus bruts annuels estimés</div>
+    <div class="kpi-grid" id="kpiR"></div>
+    <div class="legend">
+      <span><span class="dot" style="background:#b5d4f4"></span>T2 basse saison</span>
+      <span><span class="dot" style="background:#2a78d6"></span>T2 haute saison</span>
+      <span><span class="dot" style="background:#9FE1CB"></span>T3 basse saison</span>
+      <span><span class="dot" style="background:#1baf7a"></span>T3 haute saison</span>
+    </div>
+    <div class="chart-wrap"><canvas id="cRev" height="260"></canvas></div>
+  </div>
+
+  <!-- CREDIT -->
+  <div id="tab-credit" class="panel">
+    <div class="stitle">Financement</div>
+    <div class="card">
+      <div class="srow"><span class="slbl">Taux prêt (%)</span><input type="range" min="2.0" max="4.5" value="3.6" step="0.05" id="taux"><span class="sval" id="valTaux">3.60%</span></div>
+      <div class="srow"><span class="slbl">Durée (années)</span><input type="range" min="15" max="25" value="20" step="1" id="duree"><span class="sval" id="valDuree">20 ans</span></div>
+    </div>
+    <div class="stitle">Charges annuelles — Paramètres ajustables</div>
+    <div class="card">
+      <div class="srow"><span class="slbl">Taxe foncière annuelle</span><input type="range" min="100" max="8000" value="4500" step="100" id="charTaxe"><span class="sval" id="valTaxe">4 500 €</span></div>
+      <div class="srow"><span class="slbl">Assurance PNO + emprunteur</span><input type="range" min="100" max="5000" value="2500" step="100" id="charAssur"><span class="sval" id="valAssur">2 500 €</span></div>
+      <div class="srow"><span class="slbl">Eau</span><input type="range" min="100" max="3000" value="1200" step="100" id="charEau"><span class="sval" id="valEau">1 200 €</span></div>
+      <div class="srow"><span class="slbl">Électricité</span><input type="range" min="100" max="4000" value="2400" step="100" id="charElec"><span class="sval" id="valElec">2 400 €</span></div>
+      <div class="srow"><span class="slbl">Internet</span><input type="range" min="100" max="2000" value="1200" step="50" id="charInternet"><span class="sval" id="valInternet">1 200 €</span></div>
+      <div class="srow"><span class="slbl">Entretien &amp; petites réparations</span><input type="range" min="100" max="60000" value="3000" step="100" id="charEnt"><span class="sval" id="valEnt">3 000 €</span></div>
+      <div class="srow"><span class="slbl">CFE (cotisation foncière)</span><input type="range" min="50" max="2000" value="1200" step="50" id="charCfe"><span class="sval" id="valCfe">1 200 €</span></div>
+      <div class="srow"><span class="slbl">Commission plateforme (%)</span><input type="range" min="1" max="40" value="5" step="0.5" id="charComm"><span class="sval" id="valComm">5 %</span></div>
+      <div class="srow"><span class="slbl">Ménage par nuit</span><input type="range" min="1" max="50" value="15" step="0.5" id="charMenage"><span class="sval" id="valMenage">15 €</span></div>
+    </div>
+    <div style="text-align: center; margin-top: 1rem;">
+      <button onclick="resetAllValues()" style="padding: 10px 20px; background: #a32d2d; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">↻ Réinitialiser aux valeurs initiales</button>
+    </div>
+    <div class="stitle">Tableau des charges annuelles</div>
+    <div class="card"><table id="tCharges"></table></div>
+  </div>
+
+  <!-- BILAN -->
+  <div id="tab-bilan" class="panel">
+    <div class="stitle">Résultat annuel</div>
+    <div class="kpi-grid" id="kpiB"></div>
+    <div class="legend">
+      <span><span class="dot" style="background:#2a78d6"></span>Revenus bruts</span>
+      <span><span class="dot" style="background:#888780"></span>Charges totales</span>
+      <span><span class="dot" style="background:#1baf7a"></span>Cash-flow positif</span>
+      <span><span class="dot" style="background:#e34948"></span>Cash-flow négatif</span>
+    </div>
+    <div class="chart-wrap"><canvas id="cBilan" height="180"></canvas></div>
+    <div id="verdict"></div>
+    <div class="box info" style="margin-top:1.5rem">
+      <strong>Le cash-flow n'est pas tout !</strong> Chaque mensualité rembourse du capital : vos locataires paient ~35 000 €/an de votre patrimoine. Ajoutez la valorisation du bien (+1,5 %/an ≈ 9 750 €/an) et l'avantage fiscal LMNP réel → votre enrichissement réel dépasse largement le seul cash-flow.
+    </div>
+  </div>
+
+  <!-- FISCALITE -->
+  <div id="tab-fisca" class="panel">
+    <div class="stitle">Fiscalité LMNP 2026</div>
+    <div class="card"><table id="tFisca"></table></div>
+    <div class="box warn">Vos revenus dépasseront 23 000 €/an → statut LMP possible si ces revenus représentent plus de 50 % des revenus du foyer. Sinon LMNP au <strong>régime réel</strong>, très avantageux.</div>
+    <div class="box ok" style="margin-top:10px">Au régime réel LMNP, l'amortissement du bien (≈ 20 000 €/an) + les intérêts du prêt + les charges permettent de <strong>quasi-neutraliser l'impôt pendant 10–15 ans</strong>.</div>
+    <div class="stitle" style="margin-top:1.5rem">Conseil : classez vos logements en meublés de tourisme</div>
+    <div class="card">
+      <table>
+        <tr><td>Sans classement (micro-BIC)</td><td>Plafond 15 000 €/an — abattement 30 %</td></tr>
+        <tr><td>Avec classement 1–5 étoiles</td><td>Plafond 83 600 €/an — abattement 50 %</td></tr>
+        <tr><td>Régime réel (recommandé ici)</td><td>Amortissement + toutes charges déductibles</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <footer>Simulation indicative — données marché Gréoux-les-Bains 2026 · Consultez un expert-comptable pour la fiscalité</footer>
+</div>
+
+<script>
+// ── constantes ──────────────────────────────────────────────────
+var ACHAT = 600000, TRAVAUX = 50000, FN = Math.round(600000 * 0.075);
+var CAPITAL = ACHAT + TRAVAUX + FN; // ~698 000
+var JBS = 220, JHS = 145;           // jours basse/haute saison
+
+// ── valeurs par défaut ───────────────────────────────────────────
+var DEFAULT_VALUES = {
+  prixT3B: 110,
+  prixT3H: 200,
+  txBS: 50,
+  txHS: 80,
+  taux: 3.6,
+  duree: 20,
+  charTaxe: 4500,
+  charAssur: 2500,
+  charEau: 1200,
+  charElec: 2400,
+  charInternet: 1200,
+  charEnt: 3000,
+  charCfe: 1200,
+  charComm: 5,
+  charMenage: 15
+};
+
+// ── localStorage ─────────────────────────────────────────────────
+function storageAvailable() {
+  try {
+    var testKey = '__simulator_test__';
+    localStorage.setItem(testKey, '1');
+    localStorage.removeItem(testKey);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+var STORAGE_OK = storageAvailable();
+
+function saveValue(id, value) {
+  if (!STORAGE_OK) return;
+  localStorage.setItem('simulateur_' + id, value);
+}
+
+function loadValue(id) {
+  var elem = el(id);
+  if (!elem || !STORAGE_OK) return false;
+  var saved = localStorage.getItem('simulateur_' + id);
+  if (saved !== null) {
+    elem.value = saved;
+    return true;
+  }
+  return false;
+}
+
+function loadAllValues() {
+  // Charger les valeurs standard
+  Object.keys(DEFAULT_VALUES).forEach(function(id) {
+    loadValue(id);
+  });
+  
+  // Charger les prix T2
+  for (var i = 1; i <= 7; i++) {
+    loadValue('prixT2BS' + i);
+    loadValue('prixT2HS' + i);
+  }
+}
+
+function resetAllValues() {
+  if (!confirm('Êtes-vous sûr de vouloir réinitialiser tous les paramètres?')) return;
+  
+  // Réinitialiser T2
+  for (var i = 1; i <= 7; i++) {
+    el('prixT2BS' + i).value = 65;
+    localStorage.removeItem('simulateur_prixT2BS' + i);
+    el('prixT2HS' + i).value = 120;
+    localStorage.removeItem('simulateur_prixT2HS' + i);
+  }
+  
+  // Réinitialiser les autres
+  Object.keys(DEFAULT_VALUES).forEach(function(id) {
+    el(id).value = DEFAULT_VALUES[id];
+    localStorage.removeItem('simulateur_' + id);
+  });
+  
+  updateAllLabels();
+  render();
+}
+
+function updateAllLabels() {
+  // Mettre à jour les labels pour tous les sliders
+  var labelUpdates = {
+    'prixT3B': { suffix: ' €', labelId: 'valT3B' },
+    'prixT3H': { suffix: ' €', labelId: 'valT3H' },
+    'txBS': { suffix: '%', labelId: 'valTxBS' },
+    'txHS': { suffix: '%', labelId: 'valTxHS' },
+    'taux': { suffix: '%', labelId: 'valTaux', format: function(v) { return parseFloat(v).toFixed(2); } },
+    'duree': { suffix: ' ans', labelId: 'valDuree' },
+    'charTaxe': { suffix: ' €', labelId: 'valTaxe' },
+    'charAssur': { suffix: ' €', labelId: 'valAssur' },
+    'charEau': { suffix: ' €', labelId: 'valEau' },
+    'charElec': { suffix: ' €', labelId: 'valElec' },
+    'charInternet': { suffix: ' €', labelId: 'valInternet' },
+    'charEnt': { suffix: ' €', labelId: 'valEnt' },
+    'charCfe': { suffix: ' €', labelId: 'valCfe' },
+    'charComm': { suffix: ' %', labelId: 'valComm', format: function(v) { return parseFloat(v).toFixed(1); } },
+    'charMenage': { suffix: ' €', labelId: 'valMenage', format: function(v) { return parseFloat(v).toFixed(1); } }
+  };
+  
+  // Mettre à jour labels T2
+  for (var i = 1; i <= 7; i++) {
+    var id_bs = 'prixT2BS' + i;
+    var id_hs = 'prixT2HS' + i;
+    if (el('val' + id_bs)) el('val' + id_bs).textContent = el(id_bs).value + ' €';
+    if (el('val' + id_hs)) el('val' + id_hs).textContent = el(id_hs).value + ' €';
+  }
+  
+  // Mettre à jour les labels statiques
+  Object.keys(labelUpdates).forEach(function(id) {
+    var config = labelUpdates[id];
+    var elem = el(id);
+    var label = el(config.labelId);
+    if (elem && label) {
+      var value = parseFloat(elem.value);
+      var displayValue = value;
+      
+      if (config.format) {
+        displayValue = config.format(value);
+      }
+      
+      label.textContent = displayValue + config.suffix;
+    }
+  });
+}
+
+// ── utilitaires ─────────────────────────────────────────────────
+function fr(n) { return Math.round(n).toLocaleString('fr-FR'); }
+function sign(n) { return n >= 0 ? '+' : ''; }
+function mensualite(c, r, n) {
+  var m = r / 12, t = n * 12;
+  return c * m * Math.pow(1 + m, t) / (Math.pow(1 + m, t) - 1);
+}
+function el(id) { return document.getElementById(id); }
+function val(id) { return parseFloat(el(id).value); }
+
+// ── navigation onglets ───────────────────────────────────────────
+function deferredRender() {
+  if (window.requestAnimationFrame) {
+    window.requestAnimationFrame(render);
+  } else {
+    setTimeout(render, 0);
+  }
+}
+
+function showTab(name, btn) {
+  var panel = el('tab-' + name);
+  if (!panel) return;
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.tab').forEach(function(b) { b.classList.remove('active'); });
+  panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  deferredRender();
+}
+
+function initTabs() {
+  var container = document.querySelector('.tabs');
+  if (!container) return;
+  ['touchstart', 'mousedown', 'click', 'pointerdown'].forEach(function(eventName) {
+    container.addEventListener(eventName, function(e) {
+      var btn = e.target.closest('.tab');
+      if (!btn) return;
+      showTab(btn.getAttribute('data-tab'), btn);
+    }, { passive: true });
+  });
+}
+
+// ── graphique barres (Canvas pur, 0 dépendance) ─────────────────
+function drawBars(canvasId, data) {
+  // data = [ { label, value, color } ]
+  var canvas = el(canvasId);
+  if (!canvas) return;
+  var W = canvas.offsetWidth || 600;
+  canvas.width = W;
+  var H = parseInt(canvas.getAttribute('height')) || 260;
+  canvas.height = H;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  var PAD_L = 80, PAD_R = 20, PAD_T = 20, PAD_B = 50;
+  var maxVal = Math.max.apply(null, data.map(function(d) { return d.value; })) || 1;
+  maxVal = maxVal * 1.15;
+  var n = data.length;
+  var slotW = (W - PAD_L - PAD_R) / n;
+  var barW = slotW * 0.55;
+
+  // grille
+  ctx.strokeStyle = '#e1e0d9';
+  ctx.lineWidth = 1;
+  var steps = 4;
+  for (var i = 0; i <= steps; i++) {
+    var y = PAD_T + (H - PAD_T - PAD_B) * (1 - i / steps);
+    ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
+    var v = Math.round(maxVal * i / steps);
+    ctx.fillStyle = '#898781';
+    ctx.font = '11px -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(fr(v) + ' €', PAD_L - 6, y + 4);
+  }
+
+  // barres
+  for (var j = 0; j < n; j++) {
+    var d = data[j];
+    var x = PAD_L + j * slotW + (slotW - barW) / 2;
+    var barH = (H - PAD_T - PAD_B) * (d.value / maxVal);
+    var y0 = H - PAD_B - barH;
+    // arrondi haut
+    var r = Math.min(4, barH / 2);
+    ctx.fillStyle = d.color;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y0);
+    ctx.lineTo(x + barW - r, y0);
+    ctx.quadraticCurveTo(x + barW, y0, x + barW, y0 + r);
+    ctx.lineTo(x + barW, H - PAD_B);
+    ctx.lineTo(x, H - PAD_B);
+    ctx.lineTo(x, y0 + r);
+    ctx.quadraticCurveTo(x, y0, x + r, y0);
+    ctx.closePath();
+    ctx.fill();
+    // valeur au-dessus
+    ctx.fillStyle = '#0b0b0b';
+    ctx.font = 'bold 11px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(fr(d.value) + ' €', x + barW / 2, y0 - 5);
+    // label en-dessous
+    ctx.fillStyle = '#898781';
+    ctx.font = '11px -apple-system, sans-serif';
+    ctx.fillText(d.label, x + barW / 2, H - PAD_B + 16);
+    // retour à la ligne si deux mots
+    var parts = d.label.split('\n');
+    if (parts.length > 1) {
+      ctx.fillText(parts[0], x + barW / 2, H - PAD_B + 16);
+      ctx.fillText(parts[1], x + barW / 2, H - PAD_B + 28);
+    }
+  }
+}
+
+function drawHBars(canvasId, data) {
+  // barres horizontales
+  var canvas = el(canvasId);
+  if (!canvas) return;
+  var W = canvas.offsetWidth || 600;
+  canvas.width = W;
+  var H = parseInt(canvas.getAttribute('height')) || 180;
+  canvas.height = H;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  var PAD_L = 130, PAD_R = 80, PAD_T = 14, PAD_B = 10;
+  var maxVal = Math.max.apply(null, data.map(function(d) { return d.value; })) || 1;
+  maxVal = maxVal * 1.1;
+  var n = data.length;
+  var slotH = (H - PAD_T - PAD_B) / n;
+  var barH = slotH * 0.55;
+
+  for (var j = 0; j < n; j++) {
+    var d = data[j];
+    var y = PAD_T + j * slotH + (slotH - barH) / 2;
+    var barW = (W - PAD_L - PAD_R) * (d.value / maxVal);
+    var r = Math.min(4, barH / 2);
+    ctx.fillStyle = d.color;
+    ctx.beginPath();
+    ctx.moveTo(PAD_L, y + r);
+    ctx.quadraticCurveTo(PAD_L, y, PAD_L + r, y);
+    ctx.lineTo(PAD_L + barW - r, y);
+    ctx.quadraticCurveTo(PAD_L + barW, y, PAD_L + barW, y + r);
+    ctx.lineTo(PAD_L + barW, y + barH - r);
+    ctx.quadraticCurveTo(PAD_L + barW, y + barH, PAD_L + barW - r, y + barH);
+    ctx.lineTo(PAD_L, y + barH);
+    ctx.closePath();
+    ctx.fill();
+    // label gauche
+    ctx.fillStyle = '#52514e';
+    ctx.font = '12px -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(d.label, PAD_L - 8, y + barH / 2 + 4);
+    // valeur droite
+    ctx.fillStyle = '#0b0b0b';
+    ctx.font = 'bold 12px -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(fr(d.value) + ' €', PAD_L + barW + 6, y + barH / 2 + 4);
+  }
+}
+
+// ── rendu principal ──────────────────────────────────────────────
+function render() {
+  // Lire les prix individuels pour chaque T2
+  var prixT2BS = [];
+  var prixT2HS = [];
+  for (var i = 1; i <= 7; i++) {
+    prixT2BS.push(parseFloat(el('prixT2BS' + i).value));
+    prixT2HS.push(parseFloat(el('prixT2HS' + i).value));
+  }
+  
+  var pT3B = val('prixT3B');
+  var pT3H = val('prixT3H');
+  var tBS  = val('txBS') / 100;
+  var tHS  = val('txHS') / 100;
+  var taux = val('taux') / 100;
+  var dur  = val('duree');
+
+  // mise à jour labels sliders T3
+  el('valT3B').textContent  = pT3B + ' €';
+  el('valT3H').textContent  = pT3H + ' €';
+  el('valTxBS').textContent = Math.round(tBS * 100) + '%';
+  el('valTxHS').textContent = Math.round(tHS * 100) + '%';
+  el('valTaux').textContent = (taux * 100).toFixed(2) + '%';
+  el('valDuree').textContent = Math.round(dur) + ' ans';
+
+  // calculs revenus pour chaque T2
+  var revT2BS_total = 0;
+  var revT2HS_total = 0;
+  for (var i = 0; i < 7; i++) {
+    revT2BS_total += Math.round(prixT2BS[i] * JBS * tBS);
+    revT2HS_total += Math.round(prixT2HS[i] * JHS * tHS);
+  }
+  
+  var revT3BS = Math.round(pT3B * JBS * tBS);
+  var revT3HS = Math.round(pT3H * JHS * tHS);
+  var revTotal = revT2BS_total + revT2HS_total + revT3BS + revT3HS;
+
+  // calculs crédit
+  var mens     = Math.round(mensualite(CAPITAL, taux, dur));
+  var annCredit = mens * 12;
+  var taxeFonc  = val('charTaxe');
+  var assur     = val('charAssur');
+  var eau       = val('charEau');
+  var elec      = val('charElec');
+  var internet  = val('charInternet');
+  var entretien = val('charEnt');
+  var commRate  = val('charComm');
+  var platef    = Math.round(revTotal * commRate / 100);
+  var cfe       = val('charCfe');
+  var coutMenage = val('charMenage');
+  
+  // Calcul du ménage : nuits totales × coût par nuit
+  var nuitesT2BS = Math.round(7 * JBS * tBS);
+  var nuitesT2HS = Math.round(7 * JHS * tHS);
+  var nuitesT3BS = Math.round(JBS * tBS);
+  var nuitesT3HS = Math.round(JHS * tHS);
+  var nuitesTotales = nuitesT2BS + nuitesT2HS + nuitesT3BS + nuitesT3HS;
+  var chargeMenageTotal = Math.round(nuitesTotales * coutMenage);
+  
+  var totalChg  = annCredit + taxeFonc + assur + eau + elec + internet + entretien + platef + cfe + chargeMenageTotal;
+  var cf        = revTotal - totalChg;
+  var rendBrut  = (revTotal / CAPITAL * 100).toFixed(1);
+
+  // ── KPI revenus ──
+  el('kpiR').innerHTML =
+    kpiHtml('7 T2 basse saison',  fr(revT2BS_total)  + ' €', Math.round(JBS*tBS) + ' nuits/unité/an', '') +
+    kpiHtml('7 T2 haute saison',  fr(revT2HS_total)  + ' €', Math.round(JHS*tHS) + ' nuits/unité/an', '') +
+    kpiHtml('1 T3 (annuel)',       fr(revT3BS+revT3HS) + ' €', 'basse + haute saison', '') +
+    kpiHtml('Total revenus bruts', fr(revTotal) + ' €', 'rendement brut ' + rendBrut + '%', 'acc');
+
+  // ── graphique revenus ──
+  drawBars('cRev', [
+    { label: 'T2 basse s.', value: revT2BS_total, color: '#b5d4f4' },
+    { label: 'T2 haute s.', value: revT2HS_total, color: '#2a78d6' },
+    { label: 'T3 basse s.', value: revT3BS, color: '#9FE1CB' },
+    { label: 'T3 haute s.', value: revT3HS, color: '#1baf7a' }
+  ]);
+
+  // ── table charges ──
+  el('tCharges').innerHTML =
+    tr2('Remboursement prêt (' + fr(mens) + ' €/mois)', fr(annCredit) + ' €/an') +
+    tr2('Taxe foncière', fr(taxeFonc) + ' €/an') +
+    tr2('Assurance PNO + emprunteur', fr(assur) + ' €/an') +
+    tr2('Eau', fr(eau) + ' €/an') +
+    tr2('Électricité', fr(elec) + ' €/an') +
+    tr2('Internet', fr(internet) + ' €/an') +
+    tr2('Entretien, petites réparations', fr(entretien) + ' €/an') +
+    tr2('Commissions plateformes (' + commRate.toFixed(1) + ' %)', fr(platef) + ' €/an') +
+    tr2('CFE (cotisation foncière)', fr(cfe) + ' €/an') +
+    tr2('Ménage (' + nuitesTotales + ' nuits × ' + coutMenage.toFixed(1) + ' €)', fr(chargeMenageTotal) + ' €/an') +
+    '<tr class="ttotal"><td>Total charges annuelles</td><td>' + fr(totalChg) + ' €/an</td></tr>';
+
+  // ── KPI bilan ──
+  var cfCls = cf >= 0 ? 'pos' : 'neg';
+  el('kpiB').innerHTML =
+    kpiHtml('Investissement total', fr(CAPITAL) + ' €', 'achat + travaux + notaire', '') +
+    kpiHtml('Revenus bruts', fr(revTotal) + ' €/an', 'rendement brut ' + rendBrut + '%', '') +
+    kpiHtml('Charges totales', fr(totalChg) + ' €/an', 'crédit inclus', '') +
+    kpiHtml('Cash-flow annuel', sign(cf) + fr(cf) + ' €', sign(Math.round(cf/12)) + fr(Math.round(cf/12)) + ' €/mois', cfCls);
+
+  // ── graphique bilan ──
+  var cfColor = cf >= 0 ? '#1baf7a' : '#e34948';
+  drawHBars('cBilan', [
+    { label: 'Revenus bruts',   value: revTotal,   color: '#2a78d6' },
+    { label: 'Charges totales', value: totalChg,   color: '#888780' },
+    { label: 'Cash-flow net',   value: Math.abs(cf), color: cfColor  }
+  ]);
+
+  // ── verdict ──
+  var vBox;
+  if (cf >= 5000)
+    vBox = '<div class="box ok">Le projet dégage un cash-flow positif de <strong>' + fr(cf) + ' €/an</strong> (' + fr(Math.round(cf/12)) + ' €/mois). Les locataires financent le bien — excellent projet !</div>';
+  else if (cf >= 0)
+    vBox = '<div class="box ok">Le projet est à l\'équilibre avec un cash-flow de <strong>' + fr(cf) + ' €/an</strong>. Il s\'autofinance sans effort d\'épargne mensuel.</div>';
+  else
+    vBox = '<div class="box warn">Effort mensuel de <strong>' + fr(Math.abs(Math.round(cf/12))) + ' €/mois</strong>. Augmentez les prix ou le taux d\'occupation pour atteindre l\'équilibre.</div>';
+  el('verdict').innerHTML = vBox;
+
+  // ── fiscalité ──
+  var amort    = Math.round(CAPITAL / 30);
+  var interets = Math.round(CAPITAL * taux);
+  var autresChg = taxeFonc + assur + eau + elec + internet + entretien + platef + cfe;
+  var baseReel  = Math.max(0, revTotal - amort - interets - autresChg);
+  el('tFisca').innerHTML =
+    '<tr class="thead"><td colspan="2">Micro-BIC meublé classé (revenus &lt; 83 600 €/an)</td></tr>' +
+    tr2('Revenus bruts', fr(revTotal) + ' €') +
+    tr2('Abattement forfaitaire 50 %', '− ' + fr(Math.round(revTotal * 0.5)) + ' €') +
+    '<tr class="ttotal"><td>Base imposable micro-BIC</td><td>' + fr(Math.round(revTotal * 0.5)) + ' €</td></tr>' +
+    '<tr class="thead"><td colspan="2">Régime réel LMNP (recommandé)</td></tr>' +
+    tr2('Revenus bruts', fr(revTotal) + ' €') +
+    tr2('Amortissement du bien (30 ans)', '− ' + fr(amort) + ' €/an') +
+    tr2('Intérêts d\'emprunt (année 1)', '− ' + fr(interets) + ' €') +
+    tr2('Autres charges déductibles', '− ' + fr(autresChg) + ' €') +
+    '<tr class="ttotal"><td>Base imposable au réel</td><td style="color:' + (baseReel === 0 ? 'var(--success)' : 'inherit') + '">' + (baseReel === 0 ? '≈ 0 € — déficit reportable' : fr(baseReel) + ' €') + '</td></tr>';
+}
+
+function kpiHtml(lbl, v, sub, cls) {
+  return '<div class="kpi ' + cls + '"><div class="kpi-lbl">' + lbl + '</div><div class="kpi-val">' + v + '</div><div class="kpi-sub">' + sub + '</div></div>';
+}
+function tr2(a, b) { return '<tr><td>' + a + '</td><td>' + b + '</td></tr>'; }
+
+function updateSliderLabel(id, value) {
+  var isCharge = id.indexOf('char') === 0;
+  if (id === 'txBS' || id === 'txHS') {
+    if (el('val' + id)) el('val' + id).textContent = value + '%';
+  } else if (id === 'taux') {
+    if (el('valTaux')) el('valTaux').textContent = (parseFloat(value) / 100).toFixed(2) + '%';
+  } else if (id === 'duree') {
+    if (el('valDuree')) el('valDuree').textContent = value + ' ans';
+  } else if (id === 'charMenage') {
+    if (el('valMenage')) el('valMenage').textContent = parseFloat(value).toFixed(1) + ' €';
+  } else if (id === 'charComm') {
+    if (el('valComm')) el('valComm').textContent = parseFloat(value).toFixed(1) + ' %';
+  } else if (isCharge) {
+    var suffix = id.replace('char', '');
+    if (el('val' + suffix)) el('val' + suffix).textContent = Math.round(parseFloat(value)).toLocaleString('fr-FR') + ' €';
+  } else {
+    var label = el('val' + id);
+    if (label) label.textContent = value + ' €';
+  }
+}
+
+function handleRangeInput(event) {
+  var input = event.target;
+  if (!input || input.tagName !== 'INPUT' || input.type !== 'range') return;
+  var id = input.id;
+  updateSliderLabel(id, input.value);
+  saveValue(id, input.value);
+  render();
+}
+
+// ── générer les sliders individuels pour chaque T2 ───────────────
+function initT2Sliders() {
+  var cardBS = el('t2-bs-card');
+  var cardHS = el('t2-hs-card');
+  var html_bs = '';
+  var html_hs = '';
+  
+  for (var i = 1; i <= 7; i++) {
+    var id_bs = 'prixT2BS' + i;
+    var id_hs = 'prixT2HS' + i;
+    html_bs += '<div class="srow"><span class="slbl">T2 #' + i + ' — basse saison</span><input type="range" min="1" max="120" value="65" step="1" id="' + id_bs + '"><span class="sval" id="val' + id_bs + '">65 €</span></div>';
+    html_hs += '<div class="srow"><span class="slbl">T2 #' + i + ' — haute saison</span><input type="range" min="1" max="200" value="120" step="1" id="' + id_hs + '"><span class="sval" id="val' + id_hs + '">120 €</span></div>';
+  }
+  
+  cardBS.innerHTML = html_bs;
+  cardHS.innerHTML = html_hs;
+  
+  for (var j = 1; j <= 7; j++) {
+    var id_bs = 'prixT2BS' + j;
+    var id_hs = 'prixT2HS' + j;
+    if (el('val' + id_bs)) el('val' + id_bs).textContent = el(id_bs).value + ' €';
+    if (el('val' + id_hs)) el('val' + id_hs).textContent = el(id_hs).value + ' €';
+  }
+}
+
+// ── écouter les sliders ─────────────────────────────────────────
+document.addEventListener('input', handleRangeInput, { passive: true });
+document.addEventListener('change', handleRangeInput, { passive: true });
+document.addEventListener('touchend', function(event) {
+  if (event.target && event.target.tagName === 'INPUT' && event.target.type === 'range') {
+    handleRangeInput(event);
+  }
+}, { passive: true });
+
+// ── écouter le redimensionnement (pour les canvas) ──────────────
+window.addEventListener('resize', deferredRender);
+window.addEventListener('orientationchange', function() {
+  setTimeout(deferredRender, 120);
+});
+
+// ── lancement ───────────────────────────────────────────────────
+initTabs();
+initT2Sliders();
+loadAllValues();
+updateAllLabels();
+render();
+</script>
+</body>
+</html>
