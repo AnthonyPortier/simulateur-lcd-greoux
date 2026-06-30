@@ -95,6 +95,14 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border
         <button class="tab" type="button" onclick="openMode('lcd')">Simulateur LCD</button>
         <button class="tab" type="button" onclick="openMode('longterm')">Location longue durée</button>
       </div>
+      <div class="stitle" style="margin-top:1.5rem;">Génération du business plan</div>
+      <div class="card bp-generate-card">
+        <p style="font-size:13px; color:var(--text-sec); margin-bottom:12px; line-height:1.55;">
+          Génère un document Word complet (11 sections : résumé exécutif, présentation, étude de marché, financement, scénarios pessimiste / modéré / optimiste pour la LCD et la LLD, comparatif, amortissement, fiscalité, risques, conclusion) à partir des valeurs actuelles des curseurs. Le scénario <strong>modéré</strong> reprend vos réglages actuels (LCD et LLD) ; les scénarios <strong>pessimiste</strong> et <strong>optimiste</strong> sont calculés automatiquement en faisant varier prix/loyers et taux d'occupation de ±20 %.
+        </p>
+        <button type="button" class="bp-generate-btn" onclick="generateFullBusinessPlan()">📄 Générer le Business Plan complet (Word)</button>
+        <div id="bpGenStatus" class="bp-gen-status"></div>
+      </div>
     </div>
   </div>
 
@@ -206,15 +214,6 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border
           <tr><td>Régime réel (recommandé ici)</td><td>Amortissement + toutes charges déductibles</td></tr>
         </table>
       </div>
-      <div class="stitle">Génération du business plan</div>
-      <div class="card bp-generate-card">
-        <p style="font-size:13px; color:var(--text-sec); margin-bottom:12px; line-height:1.55;">
-          Génère un document Word complet (11 sections : résumé exécutif, présentation, étude de marché, financement, scénarios pessimiste / modéré / optimiste pour la LCD et la LLD, comparatif, amortissement, fiscalité, risques, conclusion) à partir des valeurs actuelles des curseurs. Le scénario <strong>modéré</strong> reprend vos réglages actuels (LCD et LLD) ; les scénarios <strong>pessimiste</strong> et <strong>optimiste</strong> sont calculés automatiquement en faisant varier prix/loyers et taux d'occupation de ±20 %.
-        </p>
-        <button type="button" class="bp-generate-btn" onclick="generateFullBusinessPlan()">📄 Générer le Business Plan complet (Word)</button>
-        <div id="bpGenStatus" class="bp-gen-status"></div>
-      </div>
-
     </div>
   </div>
 
@@ -258,14 +257,6 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border
         <strong>Régime réel LMNP</strong> : déductions de toutes les charges réelles + amortissements. Meilleur si vous avez beaucoup de frais ou souhaitez réduire l’imposition.<br>
         <strong>LMP possible</strong> : intéressant si les revenus locatifs dépassent 23 000 €/an et représentent plus de 50 % des revenus du foyer ; permet d’amortir le déficit et d’obtenir un statut professionnel.
       </div>
-    </div>
-    <div class="stitle">Génération du business plan</div>
-    <div class="card bp-generate-card">
-      <p style="font-size:13px; color:var(--text-sec); margin-bottom:12px; line-height:1.55;">
-        Génère un document Word complet (11 sections : résumé exécutif, présentation, étude de marché, financement, scénarios pessimiste / modéré / optimiste pour la LCD et la LLD, comparatif, amortissement, fiscalité, risques, conclusion) à partir des valeurs actuelles des curseurs. Le scénario <strong>modéré</strong> reprend vos réglages actuels (LCD et LLD) ; les scénarios <strong>pessimiste</strong> et <strong>optimiste</strong> sont calculés automatiquement en faisant varier prix/loyers et taux d'occupation de ±20 %.
-      </p>
-      <button type="button" class="bp-generate-btn" onclick="generateFullBusinessPlan()">📄 Générer le Business Plan complet (Word)</button>
-      <div id="bpGenStatusLT" class="bp-gen-status"></div>
     </div>
     <div class="stitle">Résultats longue durée</div>
     <div class="kpi-grid" id="kpiLT"></div>
@@ -985,10 +976,10 @@ function buildFullBusinessPlanRtf(data) {
 
   // ═══ PAGE DE GARDE ═══
   L.push('\\pard\\qc\\sb1600\\b\\fs56\\cf2 BUSINESS PLAN\\b0\\fs22\\cf1\\par');
-  L.push('\pard\qc\sb200\sa400\fs28\cf1 ' + rtfEsc("Acquisition et exploitation locative d'un domaine") + '\par');
-  L.push('\pard\qc\b\fs28 ' + rtfEsc('Gréoux-les-Bains (04800)') + '\b0\fs22\par');
-  L.push('\pard\qc\sb600\fs20 ' + rtfEsc('250 m² habitables · 5 000 m² de terrain · 7 T2 + 1 T3 · Piscine · Terrain de pétanque') + '\par');
-  L.push('\pard\qc\sb800\i\fs18 ' + rtfEsc('Document généré automatiquement depuis le simulateur le ') + rtfEsc(data.generatedAt) + '\i0\fs22\par');
+  L.push('\\pard\\qc\\sb200\\sa400\\fs28\\cf1 ' + rtfEsc("Acquisition et exploitation locative d'un domaine") + '\\par');
+  L.push('\\pard\\qc\\b\\fs28 ' + rtfEsc('Gréoux-les-Bains (04800)') + '\\b0\\fs22\\par');
+  L.push('\\pard\\qc\\sb600\\fs20 ' + rtfEsc('250 m² habitables · 5 000 m² de terrain · 7 T2 + 1 T3 · Piscine · Terrain de pétanque') + '\\par');
+  L.push('\\pard\\qc\\sb800\\i\\fs18 ' + rtfEsc('Document généré automatiquement depuis le simulateur le ') + rtfEsc(data.generatedAt) + '\\i0\\fs22\\par');
   pageBreak();
 
   // ═══ 1. RESUME EXECUTIF ═══
@@ -1133,7 +1124,7 @@ function buildFullBusinessPlanRtf(data) {
   paraBold('En location courte durée (scénario modéré, conditions actuelles) : ', 'cash-flow net annuel de ' + sign(data.lcd.base.cfAfterTax) + fr(data.lcd.base.cfAfterTax) + ' € (' + sign(Math.round(data.lcd.base.cfAfterTax/12)) + fr(Math.round(data.lcd.base.cfAfterTax/12)) + ' €/mois), avec une fourchette de ' + sign(data.lcd.pess.cfAfterTax) + fr(data.lcd.pess.cfAfterTax) + ' € (pessimiste) à ' + sign(data.lcd.opti.cfAfterTax) + fr(data.lcd.opti.cfAfterTax) + ' € (optimiste).');
   paraBold('En location longue durée (scénario modéré, conditions actuelles) : ', 'cash-flow net annuel de ' + sign(data.lld.base.cfLTAfterTax) + fr(data.lld.base.cfLTAfterTax) + ' € (' + sign(Math.round(data.lld.base.cfLTAfterTax/12)) + fr(Math.round(data.lld.base.cfLTAfterTax/12)) + ' €/mois), avec une fourchette de ' + sign(data.lld.pess.cfLTAfterTax) + fr(data.lld.pess.cfLTAfterTax) + ' € (pessimiste) à ' + sign(data.lld.opti.cfLTAfterTax) + fr(data.lld.opti.cfLTAfterTax) + ' € (optimiste).');
   paraBold('Recommandation : ', "comparer les deux fourchettes ci-dessus au regard de la disponibilité réelle des porteurs de projet pour la gestion quotidienne. Une stratégie hybride (T3 en longue durée pour sécuriser un revenu de base, T2 en courte durée pour maximiser la rentabilité) reste une option intermédiaire à étudier.");
-  L.push('\\pard\\sb400\\fs18\\i\\cf1 Ce document a une vocation indicative, généré automatiquement à partir des paramètres du simulateur, et ne remplace pas l\'avis d\'un expert-comptable, d\'un courtier en financement ou d\'un conseiller en gestion de patrimoine.\\i0\\fs22\\par');
+  L.push('\\pard\\sb400\\fs18\\i\\cf1 ' + rtfEsc("Ce document a une vocation indicative, généré automatiquement à partir des paramètres du simulateur, et ne remplace pas l'avis d'un expert-comptable, d'un courtier en financement ou d'un conseiller en gestion de patrimoine.") + '\\i0\\fs22\\par');
 
   L.push('}');
   return L.join('\n');
@@ -1141,8 +1132,8 @@ function buildFullBusinessPlanRtf(data) {
 
 // ── déclenche la génération et le téléchargement du BP complet ──
 function generateFullBusinessPlan() {
-  var statusEls = [el('bpGenStatus'), el('bpGenStatusLT')].filter(Boolean);
-  statusEls.forEach(function(s) { s.className = 'bp-gen-status'; s.textContent = 'Génération en cours…'; });
+  var statusEl = el('bpGenStatus');
+  if (statusEl) { statusEl.className = 'bp-gen-status'; statusEl.textContent = 'Génération en cours…'; }
   try {
     var data = collectFullBusinessPlanData();
     var rtf = buildFullBusinessPlanRtf(data);
