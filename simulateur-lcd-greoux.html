@@ -101,8 +101,10 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border
           Génère un document Word complet (11 sections : résumé exécutif, présentation, étude de marché, financement, scénarios pessimiste / modéré / optimiste pour la LCD et la LLD, comparatif, amortissement, fiscalité, risques, conclusion) à partir des valeurs actuelles des curseurs. Le scénario <strong>modéré</strong> reprend vos réglages actuels (LCD et LLD) ; les scénarios <strong>pessimiste</strong> et <strong>optimiste</strong> sont calculés automatiquement en faisant varier prix/loyers et taux d'occupation de ±20 %.
         </p>
         <button type="button" class="bp-generate-btn" onclick="generateFullBusinessPlan()">📄 Générer le Business Plan complet (Word)</button>
-        <button type="button" class="bp-generate-btn" onclick="generateFullBusinessPlanPdf()" style="margin-top:10px;">📄 Générer le Business Plan complet (PDF)</button>
-        <div id="bpGenStatus" class="bp-gen-status"></div>
+            <!-- pour futur pdf 
+<button type="button" class="bp-generate-btn" onclick="generateFullBusinessPlanPdf()" style="margin-top:10px;">📄 Générer le Business Plan complet (PDF)</button>
+          -->
+<div id="bpGenStatus" class="bp-gen-status"></div>
         <div id="bpPdfGenStatus" class="bp-gen-status"></div>
       </div>
     </div>
