@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Simulateur LCD — Gréoux-les-Bains</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8f7f4; --surface: #ffffff; --surface-alt: #f1f0ec;
+  --border: rgba(0,0,0,0.10); --border-strong: rgba(0,0,0,0.20);
+  --text: #0b0b0b; --text-sec: #52514e; --text-muted: #898781;
+  --accent: #185fa5; --accent-bg: #e6f1fb;
+  --success: #0f6e56; --success-bg: #e1f5ee;
+  --danger: #a32d2d; --danger-bg: #fcebeb;
+  --warning: #854f0b; --warning-bg: #faeeda;
+  --radius: 8px;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6; min-height: 100vh; overflow-x: hidden; }
+.container { max-width: 820px; margin: 0 auto; padding: 2rem 1.5rem; }
+button, input, select, textarea { touch-action: manipulation; }
+h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.subtitle { color: var(--text-sec); font-size: 14px; margin-bottom: 2rem; }
+.tabs { display: flex; gap: 8px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.tab { padding: 7px 16px; border-radius: var(--radius); border: 1px solid var(--border-strong); font-size: 13px; cursor: pointer; background: transparent; color: var(--text-sec); font-family: inherit; }
+.tab.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.stitle { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .07em; margin: 1.5rem 0 10px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+.kpi { background: var(--surface-alt); border-radius: var(--radius); padding: 14px 16px; }
+.kpi-lbl { font-size: 12px; color: var(--text-sec); margin-bottom: 4px; }
+.kpi-val { font-size: 20px; font-weight: 700; color: var(--text); }
+.kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+.kpi.pos .kpi-val { color: var(--success); }
+.kpi.neg .kpi-val { color: var(--danger); }
+.kpi.acc .kpi-val { color: var(--accent); }
+.srow { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.slbl { font-size: 13px; color: var(--text-sec); min-width: 200px; }
+.sval { font-size: 13px; font-weight: 700; min-width: 65px; text-align: right; color: var(--text); }
+input[type=range] { flex: 1; accent-color: var(--accent); cursor: pointer; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table tr { border-bottom: 1px solid var(--border); }
+table tr:last-child { border-bottom: none; }
+table td { padding: 9px 6px; color: var(--text-sec); }
+table td:last-child { text-align: right; font-weight: 600; color: var(--text); }
+table tr.thead td { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; background: var(--surface-alt); padding: 8px 6px; }
+table tr.ttotal td { font-weight: 700; border-top: 2px solid var(--border-strong); background: var(--surface-alt); color: var(--text); }
+table tr.ttotal td:last-child { color: var(--success); }
+.chart-wrap { width: 100%; margin-top: 1rem; }
+canvas { display: block; width: 100% !important; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-sec); margin-bottom: 8px; }
+.legend span { display: flex; align-items: center; gap: 5px; }
+.dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+.box { border-radius: var(--radius); padding: 12px 16px; font-size: 13px; margin-top: 1rem; line-height: 1.6; }
+.box.ok { background: var(--success-bg); color: var(--success); }
+.box.warn { background: var(--warning-bg); color: var(--warning); }
+.box.info { background: var(--accent-bg); color: var(--accent); }
+.bp-generate-card { text-align:center; }
+.bp-generate-btn { width:100%; padding:14px 18px; background:var(--accent); color:#fff; border:none; border-radius:10px; cursor:pointer; font-size:14px; font-weight:700; font-family:inherit; transition:opacity .15s; }
+.bp-generate-btn:hover { opacity:0.9; }
+.bp-generate-btn:disabled { opacity:0.6; cursor:default; }
+.bp-gen-status { margin-top:10px; font-size:12px; color:var(--text-sec); min-height:16px; }
+.bp-gen-status.ok { color:var(--success); font-weight:600; }
+.bp-gen-status.err { color:var(--danger); font-weight:600; }
+.panel { display: none; }
+.panel.active { display: block; }
+.mode-screen { display: none; }
+.mode-screen.active { display: block; }
+footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); text-align: center; }
+@media (max-width: 640px) {
+  .container { padding: 1rem 0.85rem; }
+  .tabs { gap: 6px; }
+  .tab { flex: 1 1 calc(50% - 6px); text-align: center; padding: 8px 10px; }
+  .srow { flex-direction: column; align-items: stretch; gap: 8px; }
+  .slbl { min-width: 0; width: 100%; }
+  .sval { min-width: 0; text-align: left; }
+  input[type=range] { width: 100%; }
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card { padding: 0.9rem 0.95rem; }
+  canvas { max-width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <p class="subtitle">Domaine 250 m² hab. · 5 000 m² terrain · 7 T2 + 1 T3 · Piscine · Pétanque<br>Achat 600 000 € + 50 000 € travaux · Financement total ~698 000 €</p>
+
+  <div id="mode-home" class="mode-screen active">
+    <div class="card" style="text-align:center; padding:2rem; margin-bottom:1.5rem;">
+      <div class="stitle">Choisissez votre simulateur</div>
+      <div style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-top:1rem;">
+        <button class="tab" type="button" onclick="openMode('lcd')">Simulateur LCD</button>
+        <button class="tab" type="button" onclick="openMode('longterm')">Location longue durée</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mode-lcd" class="mode-screen">
+    <div style="display:flex; justify-content:flex-end; margin-bottom:1rem;">
+      <button class="tab" type="button" style="background:transparent; border:1px solid var(--border); color:var(--text-sec); font-weight:600;" onclick="showHome()">← Retour</button>
+    </div>
+    <!-- REVENUS -->
+    <div id="tab-revenus" class="panel active">
+    <div class="stitle">Paramètres locatifs à la nuitée — T2 (Basse saison: Nov-Avr)</div>
+    <div class="card" id="t2-bs-card"></div>
+    <div class="stitle">Paramètres locatifs à la nuitée — T2 (Haute saison: Mai-Oct)</div>
+    <div class="card" id="t2-hs-card"></div>
+    <div class="stitle">Paramètres locatifs à la nuitée — T3 (Basse saison: Nov-Avr)</div>
+    <div class="card">
+      <div class="srow"><span class="slbl">Prix/nuit T3 — basse saison</span><input type="range" min="1" max="160" value="110" step="1" id="prixT3B"><span class="sval" id="valT3B">110 €</span></div>
+    </div>
+    <div class="stitle">Paramètres locatifs à la nuitée — T3 (Haute saison: Mai-Oct)</div>
+    <div class="card">
+      <div class="srow"><span class="slbl">Prix/nuit T3 — haute saison</span><input type="range" min="1" max="300" value="200" step="1" id="prixT3H"><span class="sval" id="valT3H">200 €</span></div>
+    </div>
+    <div class="stitle">Taux d'occupation</div>
+    <div class="card">
+      <div class="srow"><span class="slbl">Taux occupation basse saison (Nov-Avr)</span><input type="range" min="1" max="80" value="50" step="1" id="txBS"><span class="sval" id="valTxBS">50%</span></div>
+      <div class="srow"><span class="slbl">Taux occupation haute saison (Mai-Oct)</span><input type="range" min="1" max="100" value="80" step="1" id="txHS"><span class="sval" id="valTxHS">80%</span></div>
+    </div>
+    <div class="stitle">Revenus bruts annuels estimés</div>
+    <div class="kpi-grid" id="kpiR"></div>
+    <div class="legend">
+      <span><span class="dot" style="background:#b5d4f4"></span>T2 basse saison</span>
+      <span><span class="dot" style="background:#2a78d6"></span>T2 haute saison</span>
+      <span><span class="dot" style="background:#9FE1CB"></span>T3 basse saison</span>
+      <span><span class="dot" style="background:#1baf7a"></span>T3 haute saison</span>
+    </div>
+    <div class="chart-wrap"><canvas id="cRev" height="260"></canvas></div>
+    </div>
+
+    <!-- CREDIT -->
+    <div id="tab-credit" class="panel active">
+      <div class="stitle">Financement</div>
+      <div class="card">
+        <div class="srow"><span class="slbl">Taux prêt (%)</span><input type="range" min="2.0" max="4.5" value="3.6" step="0.05" id="taux"><span class="sval" id="valTaux">3.60%</span></div>
+        <div class="srow"><span class="slbl">Durée (années)</span><input type="range" min="15" max="25" value="20" step="1" id="duree"><span class="sval" id="valDuree">20 ans</span></div>
+      </div>
+      <div class="stitle">Charges annuelles — Paramètres ajustables</div>
+      <div class="card">
+        <div class="srow"><span class="slbl">Taxe foncière annuelle</span><input type="range" min="100" max="8000" value="4500" step="100" id="charTaxe"><span class="sval" id="valTaxe">4 500 €</span></div>
+        <div class="srow"><span class="slbl">Assurance PNO + emprunteur</span><input type="range" min="100" max="5000" value="2500" step="100" id="charAssur"><span class="sval" id="valAssur">2 500 €</span></div>
+        <div class="srow"><span class="slbl">Eau</span><input type="range" min="100" max="3000" value="1200" step="100" id="charEau"><span class="sval" id="valEau">1 200 €</span></div>
+        <div class="srow"><span class="slbl">Électricité</span><input type="range" min="100" max="4000" value="2400" step="100" id="charElec"><span class="sval" id="valElec">2 400 €</span></div>
+        <div class="srow"><span class="slbl">Internet</span><input type="range" min="100" max="2000" value="1200" step="50" id="charInternet"><span class="sval" id="valInternet">1 200 €</span></div>
+        <div class="srow"><span class="slbl">Entretien &amp; petites réparations</span><input type="range" min="100" max="60000" value="3000" step="100" id="charEnt"><span class="sval" id="valEnt">3 000 €</span></div>
+        <div class="srow"><span class="slbl">CFE (cotisation foncière)</span><input type="range" min="50" max="2000" value="1200" step="50" id="charCfe"><span class="sval" id="valCfe">1 200 €</span></div>
+        <div class="srow"><span class="slbl">Commission plateforme (%)</span><input type="range" min="1" max="40" value="5" step="0.5" id="charComm"><span class="sval" id="valComm">5 %</span></div>
+        <div class="srow"><span class="slbl">Ménage (1 nettoyage tous les 3 jours)</span><input type="range" min="1" max="50" value="15" step="0.5" id="charMenage"><span class="sval" id="valMenage">15 €</span></div>
+      </div>
+      <div style="text-align: center; margin-top: 1rem;">
+        <button onclick="resetAllValues()" style="padding: 10px 20px; background: #a32d2d; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">↻ Réinitialiser aux valeurs initiales</button>
+      </div>
+      <div class="stitle">Tableau des charges annuelles</div>
+      <div class="card"><table id="tCharges"></table></div>
+    </div>
+
+    <!-- BILAN -->
+    <div id="tab-bilan" class="panel active">
+      <div class="stitle">Résultat annuel</div>
+      <div class="kpi-grid" id="kpiB"></div>
+      <div class="legend">
+        <span><span class="dot" style="background:#2a78d6"></span>Revenus bruts</span>
+        <span><span class="dot" style="background:#888780"></span>Charges totales</span>
+        <span><span class="dot" style="background:#1baf7a"></span>Cash-flow positif</span>
+        <span><span class="dot" style="background:#e34948"></span>Cash-flow négatif</span>
+      </div>
+      <div class="chart-wrap"><canvas id="cBilan" height="180"></canvas></div>
+      <div class="card" style="margin-top:1rem;">
+        <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px;">
+          <div>
+            <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:6px;">Cash-flow net mensuel</div>
+            <div style="font-size:22px; font-weight:800; color:var(--success);" id="monthlyNetBilan">0 €/mois</div>
+            <div style="font-size:12px; color:var(--text-sec); margin-top:6px;" id="monthlyNetBilanDetail">Sur la base du cash-flow annuel estimé</div>
+          </div>
+          <div style="min-width:220px;">
+            <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px;">Régime fiscal</div>
+            <select id="fiscOpt" onchange="saveValue('fiscOpt', this.value); render();" style="width:100%; border:1px solid var(--border); border-radius:10px; padding:10px; font-size:13px; background:white;">
+              <option value="micro">Micro-BIC</option>
+              <option value="reel">Régime réel LMNP</option>
+              <option value="lmp">LMP possible</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div id="verdict"></div>
+      <div class="box info" style="margin-top:1.5rem">
+        <strong>Le cash-flow n'est pas tout !</strong> Chaque mensualité rembourse du capital : vos locataires paient ~35 000 €/an de votre patrimoine. Ajoutez la valorisation du bien (+1,5 %/an ≈ 9 750 €/an) et l'avantage fiscal LMNP réel → votre enrichissement réel dépasse largement le seul cash-flow.
+      </div>
+    </div>
+
+    <!-- FISCALITE -->
+    <div id="tab-fisca" class="panel active">
+      <div class="stitle">Fiscalité LMNP 2026</div>
+      <div class="card"><table id="tFisca"></table></div>
+      <div class="box warn">Vos revenus dépasseront 23 000 €/an → statut LMP possible si ces revenus représentent plus de 50 % des revenus du foyer. Sinon LMNP au <strong>régime réel</strong>, très avantageux.</div>
+      <div class="box ok" style="margin-top:10px">Au régime réel LMNP, l'amortissement du bien (≈ 20 000 €/an) + les intérêts du prêt + les charges permettent de <strong>quasi-neutraliser l'impôt pendant 10–15 ans</strong>.</div>
+      <div class="stitle" style="margin-top:1.5rem">Conseil : classez vos logements en meublés de tourisme</div>
+      <div class="card">
+        <table>
+          <tr><td>Sans classement (micro-BIC)</td><td>Plafond 15 000 €/an — abattement 30 %</td></tr>
+          <tr><td>Avec classement 1–5 étoiles</td><td>Plafond 83 600 €/an — abattement 50 %</td></tr>
+          <tr><td>Régime réel (recommandé ici)</td><td>Amortissement + toutes charges déductibles</td></tr>
+        </table>
+      </div>
+      <div class="stitle">Génération du business plan</div>
+      <div class="card bp-generate-card">
+        <p style="font-size:13px; color:var(--text-sec); margin-bottom:12px; line-height:1.55;">
+          Génère un document Word complet (11 sections : résumé exécutif, présentation, étude de marché, financement, scénarios pessimiste / modéré / optimiste pour la LCD et la LLD, comparatif, amortissement, fiscalité, risques, conclusion) à partir des valeurs actuelles des curseurs. Le scénario <strong>modéré</strong> reprend vos réglages actuels (LCD et LLD) ; les scénarios <strong>pessimiste</strong> et <strong>optimiste</strong> sont calculés automatiquement en faisant varier prix/loyers et taux d'occupation de ±20 %.
+        </p>
+        <button type="button" class="bp-generate-btn" onclick="generateFullBusinessPlan()">📄 Générer le Business Plan complet (Word)</button>
+        <div id="bpGenStatus" class="bp-gen-status"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="mode-longterm" class="mode-screen">
+    <div style="display:flex; justify-content:flex-end; margin-bottom:1rem;">
+      <button class="tab" type="button" style="background:transparent; border:1px solid var(--border); color:var(--text-sec); font-weight:600;" onclick="showHome()">← Retour</button>
+    </div>
+    <div class="stitle">Location longue durée</div>
+    <div class="stitle">Loyers mensuels</div>
+    <div class="card" id="lt-t2-card"></div>
+    <div class="stitle">Loyer mensuel T3</div>
+    <div class="card">
+      <div class="srow"><span class="slbl">Loyer mensuel T3</span><input type="range" min="700" max="2500" value="1300" step="10" id="loyerT3"><span class="sval" id="valLoyerT3">1300 €</span></div>
+    </div>
+    <div class="stitle">Financement et charges globales</div>
+    <div class="card">
+      <div class="srow"><span class="slbl">Taux prêt (%)</span><input type="range" min="2.0" max="4.5" value="3.6" step="0.05" id="tauxLT"><span class="sval" id="valTauxLT">3.60%</span></div>
+      <div class="srow"><span class="slbl">Durée (années)</span><input type="range" min="15" max="25" value="20" step="1" id="dureeLT"><span class="sval" id="valDureeLT">20 ans</span></div>
+      <div class="srow"><span class="slbl">Taxe foncière annuelle</span><input type="range" min="100" max="8000" value="4500" step="100" id="charTaxeLT"><span class="sval" id="valTaxeLT">4 500 €</span></div>
+      <div class="srow"><span class="slbl">Assurance propriétaire</span><input type="range" min="100" max="5000" value="2500" step="100" id="charAssurLT"><span class="sval" id="valAssurLT">2 500 €</span></div>
+      <div class="srow"><span class="slbl">Eau</span><input type="range" min="100" max="3000" value="1200" step="100" id="charEauLT"><span class="sval" id="valEauLT">1 200 €</span></div>
+      <div class="srow"><span class="slbl">Électricité</span><input type="range" min="100" max="4000" value="2400" step="100" id="charElecLT"><span class="sval" id="valElecLT">2 400 €</span></div>
+      <div class="srow"><span class="slbl">Internet</span><input type="range" min="100" max="2000" value="1200" step="50" id="charInternetLT"><span class="sval" id="valInternetLT">1 200 €</span></div>
+      <div class="srow"><span class="slbl">Entretien &amp; réparations</span><input type="range" min="100" max="60000" value="3000" step="100" id="charEntLT"><span class="sval" id="valEntLT">3 000 €</span></div>
+      <div class="srow"><span class="slbl">Charges copropriété / syndic</span><input type="range" min="0" max="12000" value="2000" step="100" id="charCoproLT"><span class="sval" id="valCoproLT">2 000 €</span></div>
+      <div class="srow"><span class="slbl">CFE</span><input type="range" min="50" max="2000" value="1200" step="50" id="charCfeLT"><span class="sval" id="valCfeLT">1 200 €</span></div>
+      <div style="font-size:12px; color: var(--text-muted); margin: -10px 0 10px 0; padding-left: 10px;">CFE = Cotisation Foncière des Entreprises, taxe locale due par les meublés de tourisme et autres activités professionnelles.</div>
+      <div class="srow"><span class="slbl">Autres charges / taxes</span><input type="range" min="0" max="10000" value="0" step="50" id="charAutresLT"><span class="sval" id="valAutresLT">0 €</span></div>
+    </div>
+    <div class="stitle">Choix fiscal</div>
+    <div class="card">
+      <div class="srow"><span class="slbl">Statut fiscal</span>
+        <select id="fiscOptLT" onchange="saveValue('fiscOptLT', this.value); render();" style="flex:1; min-width:0; border:1px solid var(--border); border-radius:10px; padding:10px; font-size:13px;">
+          <option value="micro">Micro-BIC (abattement 50 %)</option>
+          <option value="reel">Régime réel LMNP</option>
+          <option value="lmp">LMP possible</option>
+        </select>
+      </div>
+      <div style="margin-top:1rem; font-size:13px; color: var(--text-sec); line-height:1.55;">
+        <strong>Micro-BIC</strong> : abattement de 50 % sur les revenus locatifs. Simple, mais plafonné et moins intéressant si les charges sont élevées.<br>
+        <strong>Régime réel LMNP</strong> : déductions de toutes les charges réelles + amortissements. Meilleur si vous avez beaucoup de frais ou souhaitez réduire l’imposition.<br>
+        <strong>LMP possible</strong> : intéressant si les revenus locatifs dépassent 23 000 €/an et représentent plus de 50 % des revenus du foyer ; permet d’amortir le déficit et d’obtenir un statut professionnel.
+      </div>
+    </div>
+    <div class="stitle">Génération du business plan</div>
+    <div class="card bp-generate-card">
+      <p style="font-size:13px; color:var(--text-sec); margin-bottom:12px; line-height:1.55;">
+        Génère un document Word complet (11 sections : résumé exécutif, présentation, étude de marché, financement, scénarios pessimiste / modéré / optimiste pour la LCD et la LLD, comparatif, amortissement, fiscalité, risques, conclusion) à partir des valeurs actuelles des curseurs. Le scénario <strong>modéré</strong> reprend vos réglages actuels (LCD et LLD) ; les scénarios <strong>pessimiste</strong> et <strong>optimiste</strong> sont calculés automatiquement en faisant varier prix/loyers et taux d'occupation de ±20 %.
+      </p>
+      <button type="button" class="bp-generate-btn" onclick="generateFullBusinessPlan()">📄 Générer le Business Plan complet (Word)</button>
+      <div id="bpGenStatusLT" class="bp-gen-status"></div>
+    </div>
+    <div class="stitle">Résultats longue durée</div>
+    <div class="kpi-grid" id="kpiLT"></div>
+    <div class="legend">
+      <span><span class="dot" style="background:#2a78d6"></span>Revenus locatifs</span>
+      <span><span class="dot" style="background:#888780"></span>Charges totales</span>
+      <span><span class="dot" style="background:#1baf7a"></span>Cash-flow net</span>
+    </div>
+    <div class="chart-wrap"><canvas id="cLT" height="260"></canvas></div>
+    <div class="stitle">Tableau des charges annuelles</div>
+    <div class="card"><table id="tChargesLT"></table></div>
+    <div id="verdictLT"></div>
+    <div class="card" style="margin-top:1rem;">
+      <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:6px;">Montant mensuel net estimé</div>
+      <div style="font-size:22px; font-weight:800; color:var(--success);" id="monthlyNetLT">0 €/mois</div>
+      <div style="font-size:12px; color:var(--text-sec); margin-top:6px;" id="monthlyNetLTDetail">Selon le régime fiscal sélectionné</div>
+    </div>
+
+  </div>
+
+  </div>
+
+  <footer>Simulation indicative — données marché Gréoux-les-Bains 2026 · Consultez un expert-comptable pour la fiscalité</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+// ── constantes ──────────────────────────────────────────────────
+var ACHAT = 600000, TRAVAUX = 50000, FN = Math.round(600000 * 0.075);
+var CAPITAL = ACHAT + TRAVAUX + FN; // ~698 000
+var JBS = 220, JHS = 145;           // jours basse/haute saison
+
+// ── valeurs par défaut ───────────────────────────────────────────
+var DEFAULT_VALUES = {
+  prixT3B: 110,
+  prixT3H: 200,
+  txBS: 50,
+  txHS: 80,
+  taux: 3.6,
+  duree: 20,
+  charTaxe: 4500,
+  charAssur: 2500,
+  charEau: 1200,
+  charElec: 2400,
+  charInternet: 1200,
+  charEnt: 3000,
+  charCfe: 1200,
+  charComm: 5,
+  charMenage: 15,
+  loyerT3: 1300,
+  tauxLT: 3.6,
+  dureeLT: 20,
+  charTaxeLT: 4500,
+  charAssurLT: 2500,
+  charEauLT: 1200,
+  charElecLT: 2400,
+  charInternetLT: 1200,
+  charEntLT: 3000,
+  charCfeLT: 1200,
+  charCoproLT: 2000,
+  charAutresLT: 0,
+  fiscOptLT: 'micro',
+  fiscOpt: 'micro'
+};
+
+// ── localStorage ─────────────────────────────────────────────────
+function storageAvailable() {
+  try {
+    var testKey = '__simulator_test__';
+    localStorage.setItem(testKey, '1');
+    localStorage.removeItem(testKey);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+var STORAGE_OK = storageAvailable();
+
+function saveValue(id, value) {
+  if (!STORAGE_OK) return;
+  localStorage.setItem('simulateur_' + id, value);
+}
+
+function loadValue(id) {
+  var elem = el(id);
+  if (!elem || !STORAGE_OK) return false;
+  var saved = localStorage.getItem('simulateur_' + id);
+  if (saved !== null) {
+    elem.value = saved;
+    return true;
+  }
+  return false;
+}
+
+function loadAllValues() {
+  // Charger les valeurs standard
+  Object.keys(DEFAULT_VALUES).forEach(function(id) {
+    loadValue(id);
+  });
+  
+  // Charger les prix T2 du simulateur LCD
+  for (var i = 1; i <= 7; i++) {
+    loadValue('prixT2BS' + i);
+    loadValue('prixT2HS' + i);
+  }
+  // Charger les loyers T2 long terme
+  for (var i = 1; i <= 7; i++) {
+    loadValue('loyerT2_' + i);
+  }
+  loadValue('loyerT3');
+  loadValue('tauxLT');
+  loadValue('dureeLT');
+  loadValue('charTaxeLT');
+  loadValue('charAssurLT');
+  loadValue('charEauLT');
+  loadValue('charElecLT');
+  loadValue('charInternetLT');
+  loadValue('charEntLT');
+  loadValue('charCfeLT');
+  loadValue('charCoproLT');
+  loadValue('charAutresLT');
+  loadValue('fiscOptLT');
+  loadValue('fiscOpt');
+}
+
+function resetAllValues() {
+  if (!confirm('Êtes-vous sûr de vouloir réinitialiser tous les paramètres?')) return;
+  
+  // Réinitialiser T2
+  for (var i = 1; i <= 7; i++) {
+    el('prixT2BS' + i).value = 65;
+    localStorage.removeItem('simulateur_prixT2BS' + i);
+    el('prixT2HS' + i).value = 120;
+    localStorage.removeItem('simulateur_prixT2HS' + i);
+  }
+  
+  // Réinitialiser les loyers T2 long terme
+  for (var i = 1; i <= 7; i++) {
+    var ltId = 'loyerT2_' + i;
+    el(ltId).value = 900;
+    localStorage.removeItem('simulateur_' + ltId);
+  }
+  el('loyerT3').value = 1300;
+  localStorage.removeItem('simulateur_loyerT3');
+  el('tauxLT').value = DEFAULT_VALUES.tauxLT;
+  localStorage.removeItem('simulateur_tauxLT');
+  el('dureeLT').value = DEFAULT_VALUES.dureeLT;
+  localStorage.removeItem('simulateur_dureeLT');
+  el('fiscOptLT').value = DEFAULT_VALUES.fiscOptLT;
+  localStorage.removeItem('simulateur_fiscOptLT');
+  el('fiscOpt').value = DEFAULT_VALUES.fiscOpt;
+  localStorage.removeItem('simulateur_fiscOpt');
+  
+  // Réinitialiser les autres
+  Object.keys(DEFAULT_VALUES).forEach(function(id) {
+    el(id).value = DEFAULT_VALUES[id];
+    localStorage.removeItem('simulateur_' + id);
+  });
+  
+  updateAllLabels();
+  render();
+}
+
+function updateAllLabels() {
+  // Mettre à jour les labels pour tous les sliders
+  var labelUpdates = {
+    'prixT3B': { suffix: ' €', labelId: 'valT3B' },
+    'prixT3H': { suffix: ' €', labelId: 'valT3H' },
+    'txBS': { suffix: '%', labelId: 'valTxBS' },
+    'txHS': { suffix: '%', labelId: 'valTxHS' },
+    'taux': { suffix: '%', labelId: 'valTaux', format: function(v) { return parseFloat(v).toFixed(2); } },
+    'duree': { suffix: ' ans', labelId: 'valDuree' },
+    'charTaxe': { suffix: ' €', labelId: 'valTaxe' },
+    'charAssur': { suffix: ' €', labelId: 'valAssur' },
+    'charEau': { suffix: ' €', labelId: 'valEau' },
+    'charElec': { suffix: ' €', labelId: 'valElec' },
+    'charInternet': { suffix: ' €', labelId: 'valInternet' },
+    'charEnt': { suffix: ' €', labelId: 'valEnt' },
+    'charCfe': { suffix: ' €', labelId: 'valCfe' },
+    'charComm': { suffix: ' %', labelId: 'valComm', format: function(v) { return parseFloat(v).toFixed(1); } },
+    'charMenage': { suffix: ' €', labelId: 'valMenage', format: function(v) { return parseFloat(v).toFixed(1); } },
+    'loyerT3': { suffix: ' €', labelId: 'valLoyerT3' },
+    'tauxLT': { suffix: '%', labelId: 'valTauxLT', format: function(v) { return parseFloat(v).toFixed(2); } },
+    'dureeLT': { suffix: ' ans', labelId: 'valDureeLT' },
+    'charTaxeLT': { suffix: ' €', labelId: 'valTaxeLT' },
+    'charAssurLT': { suffix: ' €', labelId: 'valAssurLT' },
+    'charEauLT': { suffix: ' €', labelId: 'valEauLT' },
+    'charElecLT': { suffix: ' €', labelId: 'valElecLT' },
+    'charInternetLT': { suffix: ' €', labelId: 'valInternetLT' },
+    'charEntLT': { suffix: ' €', labelId: 'valEntLT' },
+    'charCfeLT': { suffix: ' €', labelId: 'valCfeLT' },
+    'charCoproLT': { suffix: ' €', labelId: 'valCoproLT' },
+    'charAutresLT': { suffix: ' €', labelId: 'valAutresLT' }
+  };
+  
+  // Mettre à jour labels T2
+  for (var i = 1; i <= 7; i++) {
+    var id_bs = 'prixT2BS' + i;
+    var id_hs = 'prixT2HS' + i;
+    if (el('val' + id_bs)) el('val' + id_bs).textContent = el(id_bs).value + ' €';
+    if (el('val' + id_hs)) el('val' + id_hs).textContent = el(id_hs).value + ' €';
+    var id_lt = 'loyerT2_' + i;
+    var labelLt = el(labelIdForControl(id_lt));
+    if (labelLt) labelLt.textContent = el(id_lt).value + ' €';
+  }
+  
+  // Mettre à jour les labels statiques
+  Object.keys(labelUpdates).forEach(function(id) {
+    var config = labelUpdates[id];
+    var elem = el(id);
+    var label = el(config.labelId);
+    if (elem && label) {
+      var value = parseFloat(elem.value);
+      var displayValue = value;
+      
+      if (config.format) {
+        displayValue = config.format(value);
+      }
+      
+      label.textContent = displayValue + config.suffix;
+    }
+  });
+}
+
+// ── utilitaires ─────────────────────────────────────────────────
+function fr(n) { return Math.round(n).toLocaleString('fr-FR'); }
+function sign(n) { return n >= 0 ? '+' : ''; }
+function labelIdForControl(id) {
+  return 'val' + id.charAt(0).toUpperCase() + id.slice(1);
+}
+function mensualite(c, r, n) {
+  var m = r / 12, t = n * 12;
+  return c * m * Math.pow(1 + m, t) / (Math.pow(1 + m, t) - 1);
+}
+function el(id) { return document.getElementById(id); }
+function val(id) { return parseFloat(el(id).value); }
+
+function showMode(mode) {
+  document.querySelectorAll('.mode-screen').forEach(function(item) { item.classList.remove('active'); });
+  var target = el('mode-' + mode);
+  if (!target) return;
+  target.classList.add('active');
+  if (mode === 'lcd') {
+    document.querySelectorAll('#mode-lcd .panel').forEach(function(item) { item.classList.add('active'); });
+  } else {
+    document.querySelectorAll('.panel').forEach(function(item) { item.classList.remove('active'); });
+  }
+  deferredRender();
+}
+function showHome() { showMode('home'); }
+function openMode(mode) { showMode(mode); render(); }
+
+// ── navigation onglets ───────────────────────────────────────────
+function deferredRender() {
+  if (window.requestAnimationFrame) {
+    window.requestAnimationFrame(render);
+  } else {
+    setTimeout(render, 0);
+  }
+}
+
+function showTab(name, btn) {
+  var panel = el('tab-' + name);
+  if (!panel) return;
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.add('active'); });
+  document.querySelectorAll('.tab').forEach(function(b) { b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  deferredRender();
+}
+
+function initTabs() {
+  var container = document.querySelector('.tabs');
+  if (!container) return;
+  ['touchstart', 'mousedown', 'click', 'pointerdown'].forEach(function(eventName) {
+    container.addEventListener(eventName, function(e) {
+      var btn = e.target.closest('.tab');
+      if (!btn) return;
+      showTab(btn.getAttribute('data-tab'), btn);
+    }, { passive: true });
+  });
+}
+
+// ── graphique barres (Canvas pur, 0 dépendance) ─────────────────
+function drawBars(canvasId, data) {
+  // data = [ { label, value, color } ]
+  var canvas = el(canvasId);
+  if (!canvas) return;
+  var W = canvas.offsetWidth || 600;
+  canvas.width = W;
+  var H = parseInt(canvas.getAttribute('height')) || 260;
+  canvas.height = H;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  var PAD_L = 80, PAD_R = 20, PAD_T = 20, PAD_B = 50;
+  var maxVal = Math.max.apply(null, data.map(function(d) { return d.value; })) || 1;
+  maxVal = maxVal * 1.15;
+  var n = data.length;
+  var slotW = (W - PAD_L - PAD_R) / n;
+  var barW = slotW * 0.55;
+
+  // grille
+  ctx.strokeStyle = '#e1e0d9';
+  ctx.lineWidth = 1;
+  var steps = 4;
+  for (var i = 0; i <= steps; i++) {
+    var y = PAD_T + (H - PAD_T - PAD_B) * (1 - i / steps);
+    ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
+    var v = Math.round(maxVal * i / steps);
+    ctx.fillStyle = '#898781';
+    ctx.font = '11px -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(fr(v) + ' €', PAD_L - 6, y + 4);
+  }
+
+  // barres
+  for (var j = 0; j < n; j++) {
+    var d = data[j];
+    var x = PAD_L + j * slotW + (slotW - barW) / 2;
+    var barH = (H - PAD_T - PAD_B) * (d.value / maxVal);
+    var y0 = H - PAD_B - barH;
+    // arrondi haut
+    var r = Math.min(4, barH / 2);
+    ctx.fillStyle = d.color;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y0);
+    ctx.lineTo(x + barW - r, y0);
+    ctx.quadraticCurveTo(x + barW, y0, x + barW, y0 + r);
+    ctx.lineTo(x + barW, H - PAD_B);
+    ctx.lineTo(x, H - PAD_B);
+    ctx.lineTo(x, y0 + r);
+    ctx.quadraticCurveTo(x, y0, x + r, y0);
+    ctx.closePath();
+    ctx.fill();
+    // valeur au-dessus
+    ctx.fillStyle = '#0b0b0b';
+    ctx.font = 'bold 11px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(fr(d.value) + ' €', x + barW / 2, y0 - 5);
+    // label en-dessous
+    ctx.fillStyle = '#898781';
+    ctx.font = '11px -apple-system, sans-serif';
+    ctx.fillText(d.label, x + barW / 2, H - PAD_B + 16);
+    // retour à la ligne si deux mots
+    var parts = d.label.split('\n');
+    if (parts.length > 1) {
+      ctx.fillText(parts[0], x + barW / 2, H - PAD_B + 16);
+      ctx.fillText(parts[1], x + barW / 2, H - PAD_B + 28);
+    }
+  }
+}
+
+function drawHBars(canvasId, data) {
+  // barres horizontales
+  var canvas = el(canvasId);
+  if (!canvas) return;
+  var W = canvas.offsetWidth || 600;
+  canvas.width = W;
+  var H = parseInt(canvas.getAttribute('height')) || 180;
+  canvas.height = H;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  var PAD_L = 130, PAD_R = 80, PAD_T = 14, PAD_B = 10;
+  var maxVal = Math.max.apply(null, data.map(function(d) { return d.value; })) || 1;
+  maxVal = maxVal * 1.1;
+  var n = data.length;
+  var slotH = (H - PAD_T - PAD_B) / n;
+  var barH = slotH * 0.55;
+
+  for (var j = 0; j < n; j++) {
+    var d = data[j];
+    var y = PAD_T + j * slotH + (slotH - barH) / 2;
+    var barW = (W - PAD_L - PAD_R) * (d.value / maxVal);
+    var r = Math.min(4, barH / 2);
+    ctx.fillStyle = d.color;
+    ctx.beginPath();
+    ctx.moveTo(PAD_L, y + r);
+    ctx.quadraticCurveTo(PAD_L, y, PAD_L + r, y);
+    ctx.lineTo(PAD_L + barW - r, y);
+    ctx.quadraticCurveTo(PAD_L + barW, y, PAD_L + barW, y + r);
+    ctx.lineTo(PAD_L + barW, y + barH - r);
+    ctx.quadraticCurveTo(PAD_L + barW, y + barH, PAD_L + barW - r, y + barH);
+    ctx.lineTo(PAD_L, y + barH);
+    ctx.closePath();
+    ctx.fill();
+    // label gauche
+    ctx.fillStyle = '#52514e';
+    ctx.font = '12px -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(d.label, PAD_L - 8, y + barH / 2 + 4);
+    // valeur droite
+    ctx.fillStyle = '#0b0b0b';
+    ctx.font = 'bold 12px -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(fr(d.value) + ' €', PAD_L + barW + 6, y + barH / 2 + 4);
+  }
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getControlData(scopeSelector) {
+  var container = document.querySelector(scopeSelector);
+  if (!container) return [];
+  var rows = [];
+  var controls = container.querySelectorAll('input[type="range"], select');
+  Array.prototype.forEach.call(controls, function(input) {
+    var row = input.closest('.srow');
+    var labelEl = row && row.querySelector('.slbl') ? row.querySelector('.slbl') : null;
+    var valueEl = row && row.querySelector('.sval') ? row.querySelector('.sval') : null;
+    var label = labelEl ? labelEl.textContent.trim() : (input.id || 'Valeur');
+    var value = '';
+    if (input.tagName === 'SELECT') {
+      value = input.options[input.selectedIndex] ? input.options[input.selectedIndex].textContent.trim() : input.value;
+    } else if (valueEl) {
+      value = valueEl.textContent.trim();
+    } else {
+      value = input.value;
+    }
+    rows.push({ label: label, value: value, id: input.id });
+  });
+  return rows;
+}
+
+// ════════════════════════════════════════════════════════════════
+// GÉNÉRATION DU BUSINESS PLAN COMPLET (Word) — 3 scénarios × LCD/LLD
+// ════════════════════════════════════════════════════════════════
+
+// ── calcule un scénario LCD complet à partir d'un facteur de variation ──
+// factor = 1 -> scénario modéré (valeurs actuelles des sliders)
+// factor < 1 -> pessimiste (prix et occupation réduits)
+// factor > 1 -> optimiste (prix et occupation augmentés)
+function computeLcdScenario(factor) {
+  var prixT2BS = [], prixT2HS = [];
+  for (var i = 1; i <= 7; i++) {
+    prixT2BS.push(parseFloat(el('prixT2BS' + i).value) * factor);
+    prixT2HS.push(parseFloat(el('prixT2HS' + i).value) * factor);
+  }
+  var pT3B = val('prixT3B') * factor;
+  var pT3H = val('prixT3H') * factor;
+  // taux d'occupation : on fait varier mais on borne à [5%, 100%]
+  var tBS = Math.min(1, Math.max(0.05, (val('txBS') / 100) * factor));
+  var tHS = Math.min(1, Math.max(0.05, (val('txHS') / 100) * factor));
+  var taux = val('taux') / 100;
+  var dur  = val('duree');
+
+  var revT2BS_total = 0, revT2HS_total = 0;
+  for (var j = 0; j < 7; j++) {
+    revT2BS_total += Math.round(prixT2BS[j] * JBS * tBS);
+    revT2HS_total += Math.round(prixT2HS[j] * JHS * tHS);
+  }
+  var revT3BS = Math.round(pT3B * JBS * tBS);
+  var revT3HS = Math.round(pT3H * JHS * tHS);
+  var revTotal = revT2BS_total + revT2HS_total + revT3BS + revT3HS;
+
+  var mens = Math.round(mensualite(CAPITAL, taux, dur));
+  var annCredit = mens * 12;
+  var taxeFonc = val('charTaxe');
+  var assur = val('charAssur');
+  var eau = val('charEau');
+  var elec = val('charElec');
+  var internet = val('charInternet');
+  var entretien = val('charEnt');
+  var commRate = val('charComm');
+  var platef = Math.round(revTotal * commRate / 100);
+  var cfe = val('charCfe');
+  var coutMenage = val('charMenage');
+
+  var nuitesT2BS = Math.round(7 * JBS * tBS);
+  var nuitesT2HS = Math.round(7 * JHS * tHS);
+  var nuitesT3BS = Math.round(JBS * tBS);
+  var nuitesT3HS = Math.round(JHS * tHS);
+  var nuitesTotales = nuitesT2BS + nuitesT2HS + nuitesT3BS + nuitesT3HS;
+  var nettoyageCount = Math.round(nuitesTotales / 3);
+  var chargeMenageTotal = Math.round(nettoyageCount * coutMenage);
+
+  var totalChg = annCredit + taxeFonc + assur + eau + elec + internet + entretien + platef + cfe + chargeMenageTotal;
+  var cf = revTotal - totalChg;
+
+  var fiscOpt = el('fiscOpt') ? el('fiscOpt').value : 'micro';
+  var baseImposable = 0, impots = 0;
+  var amort = Math.round(CAPITAL / 30);
+  var interets = Math.round(CAPITAL * taux);
+  if (fiscOpt === 'micro') {
+    baseImposable = Math.round(revTotal * 0.5);
+    impots = Math.round(baseImposable * 0.25);
+  } else if (fiscOpt === 'reel') {
+    baseImposable = Math.max(0, revTotal - amort - interets - totalChg);
+    impots = Math.round(baseImposable * 0.25);
+  } else {
+    var lmpEligible = revTotal > 23000;
+    baseImposable = Math.max(0, revTotal - totalChg);
+    impots = lmpEligible ? Math.round(baseImposable * 0.20) : Math.round(baseImposable * 0.25);
+  }
+  var cfAfterTax = cf - impots;
+
+  return {
+    revTotal: revTotal, mens: mens, annCredit: annCredit,
+    taxeFonc: taxeFonc, assur: assur, eau: eau, elec: elec, internet: internet,
+    entretien: entretien, platef: platef, cfe: cfe, chargeMenageTotal: chargeMenageTotal,
+    totalChg: totalChg, cf: cf, impots: impots, cfAfterTax: cfAfterTax,
+    amort: amort, interets: interets, baseImposable: baseImposable,
+    fiscOpt: fiscOpt, taux: taux, dur: dur,
+    rendBrut: (revTotal / CAPITAL * 100).toFixed(1),
+    rendNet: (cfAfterTax / CAPITAL * 100).toFixed(1)
+  };
+}
+
+// ── calcule un scénario LLD complet à partir d'un facteur de variation ──
+function computeLldScenario(factor) {
+  var loyerT2_total = 0;
+  for (var i = 1; i <= 7; i++) {
+    loyerT2_total += val('loyerT2_' + i) * factor;
+  }
+  var loyerT3 = val('loyerT3') * factor;
+  // facteur d'occupation/vacance locative : on dégrade légèrement en pessimiste
+  var occupFactor = Math.min(1, Math.max(0.5, factor));
+  var revLT = Math.round((loyerT2_total + loyerT3) * 12 * occupFactor);
+
+  var tauxLT = val('tauxLT') / 100;
+  var dureeLT = val('dureeLT');
+  var mensLT = Math.round(mensualite(CAPITAL, tauxLT, dureeLT));
+  var annCreditLT = mensLT * 12;
+  var taxeFoncLT = val('charTaxeLT');
+  var assurLT = val('charAssurLT');
+  var eauLT = val('charEauLT');
+  var elecLT = val('charElecLT');
+  var internetLT = val('charInternetLT');
+  var entretienLT = val('charEntLT');
+  var cfeLT = val('charCfeLT');
+  var coproLT = val('charCoproLT');
+  var autresLT = val('charAutresLT');
+  var totalChgLT = annCreditLT + taxeFoncLT + assurLT + eauLT + elecLT + internetLT + entretienLT + cfeLT + coproLT + autresLT;
+  var cfLT = revLT - totalChgLT;
+
+  var fiscOptLT = el('fiscOptLT') ? el('fiscOptLT').value : 'micro';
+  var baseImposableLT = 0, impotsLT = 0;
+  var amortLT = Math.round((ACHAT + TRAVAUX) / 30);
+  var interetsLT = Math.round(CAPITAL * tauxLT);
+  if (fiscOptLT === 'micro') {
+    baseImposableLT = Math.round(revLT * 0.5);
+    impotsLT = Math.round(baseImposableLT * 0.25);
+  } else if (fiscOptLT === 'reel') {
+    baseImposableLT = Math.max(0, revLT - amortLT - interetsLT - totalChgLT);
+    impotsLT = Math.round(baseImposableLT * 0.25);
+  } else {
+    var lmpEligibleLT = revLT > 23000;
+    baseImposableLT = Math.max(0, revLT - totalChgLT);
+    impotsLT = lmpEligibleLT ? Math.round(baseImposableLT * 0.20) : Math.round(baseImposableLT * 0.25);
+  }
+  var cfLTAfterTax = cfLT - impotsLT;
+
+  return {
+    revLT: revLT, mensLT: mensLT, annCreditLT: annCreditLT,
+    taxeFoncLT: taxeFoncLT, assurLT: assurLT, eauLT: eauLT, elecLT: elecLT, internetLT: internetLT,
+    entretienLT: entretienLT, cfeLT: cfeLT, coproLT: coproLT, autresLT: autresLT,
+    totalChgLT: totalChgLT, cfLT: cfLT, impotsLT: impotsLT, cfLTAfterTax: cfLTAfterTax,
+    amortLT: amortLT, interetsLT: interetsLT, baseImposableLT: baseImposableLT,
+    fiscOptLT: fiscOptLT, tauxLT: tauxLT, dureeLT: dureeLT,
+    rendBrutLT: (revLT / CAPITAL * 100).toFixed(1),
+    rendNetLT: (cfLTAfterTax / CAPITAL * 100).toFixed(1)
+  };
+}
+
+// ── tableau d'amortissement (années 1, 5, 10, 15, 20) ──
+function computeAmortTable(taux, duree) {
+  var solde = CAPITAL;
+  var m = taux / 12;
+  var mensuel = mensualite(CAPITAL, taux, duree);
+  var rows = [];
+  for (var an = 1; an <= duree; an++) {
+    var interetsAnnee = 0, capitalAnnee = 0;
+    for (var mois = 0; mois < 12; mois++) {
+      var interetMois = solde * m;
+      var capitalMois = mensuel - interetMois;
+      solde -= capitalMois;
+      interetsAnnee += interetMois;
+      capitalAnnee += capitalMois;
+    }
+    rows.push({ an: an, interets: Math.round(interetsAnnee), capital: Math.round(capitalAnnee), solde: Math.round(Math.max(0, solde)) });
+  }
+  return rows;
+}
+
+function fiscLabel(opt) {
+  return opt === 'micro' ? 'Micro-BIC' : (opt === 'reel' ? 'LMNP réel' : 'LMP possible');
+}
+
+// ── collecte complète des 3 scénarios LCD + LLD ──
+function collectFullBusinessPlanData() {
+  var lcd = {
+    pess: computeLcdScenario(0.80),
+    base: computeLcdScenario(1.00),
+    opti: computeLcdScenario(1.20)
+  };
+  var lld = {
+    pess: computeLldScenario(0.85),
+    base: computeLldScenario(1.00),
+    opti: computeLldScenario(1.15)
+  };
+  var amortTable = computeAmortTable(val('taux') / 100, val('duree'));
+
+  return { lcd: lcd, lld: lld, amortTable: amortTable, generatedAt: new Date().toLocaleString('fr-FR') };
+}
+
+// ════════════════════════════════════════════════════════════════
+// CONSTRUCTION DU DOCUMENT RTF (ouvre nativement dans Word)
+// ════════════════════════════════════════════════════════════════
+function rtfEsc(text) {
+  return String(text)
+    .replace(/\\/g, '\\\\')
+    .replace(/\{/g, '\\{')
+    .replace(/\}/g, '\\}')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u00A0\u202F\u2009]/g, ' ')
+    .replace(/€/g, '\u20AC')
+    .replace(/[\u0080-\uFFFF]/g, function(c) { return '\\u' + c.charCodeAt(0) + '?'; });
+}
+
+function buildFullBusinessPlanRtf(data) {
+  var L = [];
+  function p(text, style) { L.push((style || '') + rtfEsc(text) + '\\par'); }
+  function h1(text) { L.push('\\pard\\sb360\\sa200\\b\\fs32\\cf2 ' + rtfEsc(text) + '\\b0\\fs22\\cf1\\par'); }
+  function h2(text) { L.push('\\pard\\sb240\\sa120\\b\\fs24\\cf1 ' + rtfEsc(text) + '\\b0\\fs22\\cf1\\par'); }
+  function para(text) { L.push('\\pard\\sa160\\fs22\\cf1 ' + rtfEsc(text) + '\\par'); }
+  function paraBold(label, text) { L.push('\\pard\\sa120\\fs22\\cf1\\b ' + rtfEsc(label) + '\\b0 ' + rtfEsc(text) + '\\par'); }
+  function bullet(text) { L.push('\\pard\\li360\\fi-200\\sa80\\fs22\\cf1 \\bullet\\tab ' + rtfEsc(text) + '\\par'); }
+  function pageBreak() { L.push('\\page'); }
+
+  function tableRow(cells, widths, opts) {
+    opts = opts || {};
+    var totalW = 0;
+    var def = '\\trowd\\trgaph80\\trleft0\\trrh320';
+    for (var i = 0; i < widths.length; i++) {
+      totalW += widths[i];
+      def += '\\clbrdrt\\brdrs\\brdrw10\\clbrdrl\\brdrs\\brdrw10\\clbrdrb\\brdrs\\brdrw10\\clbrdrr\\brdrs\\brdrw10';
+      if (opts.headerFill) def += '\\clcbpat2\\clcfpat3';
+      else if (opts.altFill && i === 0) def += '\\clcbpat4';
+      def += '\\cellx' + totalW;
+    }
+    L.push(def);
+    for (var j = 0; j < cells.length; j++) {
+      var align = (j > 0) ? '\\qr' : '\\ql';
+      var bold = opts.boldCol0 && j === 0 ? '\\b\\cf1 ' : (opts.headerFill ? '\\b\\cf5 ' : '\\cf1 ');
+      var boldOff = opts.boldCol0 && j === 0 ? '\\b0' : (opts.headerFill ? '\\b0\\cf1' : '');
+      L.push('\\pard\\intbl' + align + '\\fs19 ' + bold + rtfEsc(cells[j]) + boldOff + '\\cell');
+    }
+    L.push('\\row');
+  }
+
+  function scenarioTable(title, dataObj, isLcd) {
+    h2(title);
+    var widths = [3300, 2000, 2000, 2000];
+    tableRow(['', 'Pessimiste', 'Modéré', 'Optimiste'], widths, { headerFill: true });
+    var revP = isLcd ? dataObj.pess.revTotal : dataObj.pess.revLT;
+    var revB = isLcd ? dataObj.base.revTotal : dataObj.base.revLT;
+    var revO = isLcd ? dataObj.opti.revTotal : dataObj.opti.revLT;
+    var chgP = isLcd ? dataObj.pess.totalChg : dataObj.pess.totalChgLT;
+    var chgB = isLcd ? dataObj.base.totalChg : dataObj.base.totalChgLT;
+    var chgO = isLcd ? dataObj.opti.totalChg : dataObj.opti.totalChgLT;
+    var cfP = isLcd ? dataObj.pess.cfAfterTax : dataObj.pess.cfLTAfterTax;
+    var cfB = isLcd ? dataObj.base.cfAfterTax : dataObj.base.cfLTAfterTax;
+    var cfO = isLcd ? dataObj.opti.cfAfterTax : dataObj.opti.cfLTAfterTax;
+    tableRow(['Revenus bruts annuels', fr(revP) + ' €', fr(revB) + ' €', fr(revO) + ' €'], widths, { boldCol0: true, altFill: true });
+    tableRow(['Charges totales (crédit inclus)', fr(chgP) + ' €', fr(chgB) + ' €', fr(chgO) + ' €'], widths, { boldCol0: true, altFill: true });
+    tableRow(['Cash-flow net annuel (après impôt)', sign(cfP) + fr(cfP) + ' €', sign(cfB) + fr(cfB) + ' €', sign(cfO) + fr(cfO) + ' €'], widths, { boldCol0: true, altFill: true });
+    tableRow(['Cash-flow net mensuel', sign(Math.round(cfP/12)) + fr(Math.round(cfP/12)) + ' €', sign(Math.round(cfB/12)) + fr(Math.round(cfB/12)) + ' €', sign(Math.round(cfO/12)) + fr(Math.round(cfO/12)) + ' €'], widths, { boldCol0: true, altFill: true });
+    tableRow(['Rendement net (sur ' + fr(CAPITAL) + ' €)', (cfP/CAPITAL*100).toFixed(1) + ' %', (cfB/CAPITAL*100).toFixed(1) + ' %', (cfO/CAPITAL*100).toFixed(1) + ' %'], widths, { boldCol0: true, altFill: true });
+    L.push('\\pard\\sa200\\par');
+  }
+
+  function chargesTable(title, d, isLcd) {
+    h2(title);
+    var widths = [5800, 3500];
+    if (isLcd) {
+      tableRow(['Remboursement prêt (' + fr(d.mens) + ' €/mois)', fr(d.annCredit) + ' €'], widths, {});
+      tableRow(['Taxe foncière', fr(d.taxeFonc) + ' €'], widths, {});
+      tableRow(['Assurance (PNO + emprunteur)', fr(d.assur) + ' €'], widths, {});
+      tableRow(['Eau', fr(d.eau) + ' €'], widths, {});
+      tableRow(['Électricité', fr(d.elec) + ' €'], widths, {});
+      tableRow(['Internet', fr(d.internet) + ' €'], widths, {});
+      tableRow(['Entretien, petites réparations', fr(d.entretien) + ' €'], widths, {});
+      tableRow(['Commissions plateformes', fr(d.platef) + ' €'], widths, {});
+      tableRow(['CFE', fr(d.cfe) + ' €'], widths, {});
+      tableRow(['Ménage', fr(d.chargeMenageTotal) + ' €'], widths, {});
+      tableRow(['Total charges annuelles', fr(d.totalChg) + ' €'], widths, { boldCol0: true, altFill: true });
+    } else {
+      tableRow(['Remboursement prêt (' + fr(d.mensLT) + ' €/mois)', fr(d.annCreditLT) + ' €'], widths, {});
+      tableRow(['Taxe foncière', fr(d.taxeFoncLT) + ' €'], widths, {});
+      tableRow(['Assurance propriétaire', fr(d.assurLT) + ' €'], widths, {});
+      tableRow(['Eau', fr(d.eauLT) + ' €'], widths, {});
+      tableRow(['Électricité', fr(d.elecLT) + ' €'], widths, {});
+      tableRow(['Internet', fr(d.internetLT) + ' €'], widths, {});
+      tableRow(['Entretien, réparations', fr(d.entretienLT) + ' €'], widths, {});
+      tableRow(['Charges copropriété / syndic', fr(d.coproLT) + ' €'], widths, {});
+      tableRow(['CFE', fr(d.cfeLT) + ' €'], widths, {});
+      tableRow(['Autres charges', fr(d.autresLT) + ' €'], widths, {});
+      tableRow(['Total charges annuelles', fr(d.totalChgLT) + ' €'], widths, { boldCol0: true, altFill: true });
+    }
+    L.push('\\pard\\sa200\\par');
+  }
+
+  // ═══ EN-TÊTE RTF ═══
+  L.push('{\\rtf1\\ansi\\ansicpg1252\\deff0\\deflang1036');
+  L.push('{\\fonttbl{\\f0\\fswiss Arial;}}');
+  L.push('{\\colortbl;\\red24\\green95\\blue165;\\red11\\green11\\blue11;\\red255\\green255\\blue255;\\red241\\green240\\blue236;\\red24\\green95\\blue165;\\red15\\green110\\blue86;\\red163\\green45\\blue45;}');
+  L.push('\\viewkind4\\uc1\\pard\\f0\\fs22\\cf1');
+
+  // ═══ PAGE DE GARDE ═══
+  L.push('\\pard\\qc\\sb1600\\b\\fs56\\cf2 BUSINESS PLAN\\b0\\fs22\\cf1\\par');
+  L.push('\\pard\\qc\\sb200\\sa400\\fs28\\cf1 Acquisition et exploitation locative d\'un domaine\\par');
+  L.push('\\pard\\qc\\b\\fs28 Gréoux-les-Bains (04800)\\b0\\fs22\\par');
+  L.push('\\pard\\qc\\sb600\\fs20 250 m² habitables · 5 000 m² de terrain · 7 T2 + 1 T3 · Piscine · Terrain de pétanque\\par');
+  L.push('\\pard\\qc\\sb800\\i\\fs18 Document généré automatiquement depuis le simulateur le ' + rtfEsc(data.generatedAt) + '\\i0\\fs22\\par');
+  pageBreak();
+
+  // ═══ 1. RESUME EXECUTIF ═══
+  h1('1. Résumé exécutif');
+  para("Ce business plan présente l'acquisition et l'exploitation locative d'un domaine de 250 m² habitables sur un terrain de 5 000 m², situé à Gréoux-les-Bains, station thermale des Alpes-de-Haute-Provence. Le bien comprend 7 logements de type T2 (25 à 30 m² chacun) et 1 logement de type T3 (environ 50 m²), ainsi qu'une piscine et un terrain de pétanque.");
+  paraBold('Montant de l\'opération : ', fr(ACHAT) + ' € (prix d\'achat) + ' + fr(TRAVAUX) + ' € de travaux, financés intégralement par emprunt bancaire, soit un capital emprunté total de ' + fr(CAPITAL) + ' € frais de notaire inclus (≈ 7,5 %).');
+  paraBold('Exploitation envisagée : ', 'le porteur de projet gère personnellement le bien (réservations, ménage, entretien), sans recours à un prestataire externe.');
+  paraBold('Deux modèles étudiés : ', 'la location courte durée (LCD) et la location longue durée (LLD), chacun décliné en trois scénarios — pessimiste, modéré et optimiste — générés à partir des paramètres actuellement réglés dans le simulateur.');
+  L.push('\\pard\\sa160\\par');
+  h2('Synthèse des résultats (scénario modéré)');
+  var widths0 = [3600, 2850, 2850];
+  tableRow(['', 'Location courte durée', 'Location longue durée'], widths0, { headerFill: true });
+  tableRow(['Revenus bruts annuels', fr(data.lcd.base.revTotal) + ' €', fr(data.lld.base.revLT) + ' €'], widths0, { boldCol0: true, altFill: true });
+  tableRow(['Charges totales', fr(data.lcd.base.totalChg) + ' €', fr(data.lld.base.totalChgLT) + ' €'], widths0, { boldCol0: true, altFill: true });
+  tableRow(['Cash-flow net annuel', sign(data.lcd.base.cfAfterTax) + fr(data.lcd.base.cfAfterTax) + ' €', sign(data.lld.base.cfLTAfterTax) + fr(data.lld.base.cfLTAfterTax) + ' €'], widths0, { boldCol0: true, altFill: true });
+  tableRow(['Cash-flow net mensuel', sign(Math.round(data.lcd.base.cfAfterTax/12)) + fr(Math.round(data.lcd.base.cfAfterTax/12)) + ' €', sign(Math.round(data.lld.base.cfLTAfterTax/12)) + fr(Math.round(data.lld.base.cfLTAfterTax/12)) + ' €'], widths0, { boldCol0: true, altFill: true });
+  tableRow(['Régime fiscal sélectionné', fiscLabel(data.lcd.base.fiscOpt), fiscLabel(data.lld.base.fiscOptLT)], widths0, { boldCol0: true, altFill: true });
+  L.push('\\pard\\sa200\\par');
+  var lcdWins = data.lcd.base.cfAfterTax >= data.lld.base.cfLTAfterTax;
+  paraBold('Conclusion clé : ', lcdWins
+    ? 'la location courte durée génère un cash-flow net annuel supérieur à la location longue durée sur ce bien, dans les conditions actuellement réglées, à condition d\'assurer soi-même la gestion quotidienne.'
+    : 'dans les conditions actuellement réglées, la location longue durée est compétitive voire supérieure à la location courte durée pour ce bien — une situation à analyser au regard de la charge de gestion de chaque modèle.');
+  pageBreak();
+
+  // ═══ 2. PRESENTATION ═══
+  h1('2. Présentation du projet et du bien');
+  h2('2.1 Description du bien');
+  bullet('Surface habitable totale : 250 m²');
+  bullet('Terrain : 5 000 m², avec piscine et terrain de pétanque');
+  bullet('7 logements de type T2 (studio + chambre), 25 à 30 m² chacun');
+  bullet('1 logement de type T3, environ 50 m²');
+  bullet('Localisation : Gréoux-les-Bains (04800), Alpes-de-Haute-Provence');
+  h2('2.2 Atouts de la localisation');
+  para("Gréoux-les-Bains est une station thermale active toute l'année. La commune attire deux profils de clientèle complémentaires : les curistes (séjours de plusieurs semaines, de mars à novembre) et les vacanciers attirés par le Verdon et la Provence (juillet-août), ce qui permet de lisser le taux d'occupation sur l'année.");
+  h2('2.3 Stratégie d’exploitation');
+  para("Le projet repose sur une autogestion complète par les porteurs de projet : travaux de rénovation, gestion des réservations et plateformes, ménage entre chaque location. Cette approche économise les coûts de conciergerie et de personnel.");
+  pageBreak();
+
+  // ═══ 3. ETUDE DE MARCHE ═══
+  h1('3. Étude de marché — Gréoux-les-Bains');
+  h2('3.1 Marché de la location courte durée');
+  para("Le marché de la location saisonnière à Gréoux-les-Bains est porté par le tourisme thermal et la proximité du Verdon. Les biens avec piscine se positionnent sur un segment de prix plus élevé que la moyenne du marché local.");
+  h2('3.2 Marché de la location longue durée');
+  para("Le marché locatif longue durée de Gréoux-les-Bains est actif, porté par la demande liée au pôle scientifique ITER/Cadarache (stagiaires, personnel temporaire) et aux curistes en séjour prolongé. Loyers observés : T2 meublé entre 550 € et 680 €/mois, T3 meublé entre 700 € et 900 €/mois.");
+  pageBreak();
+
+  // ═══ 4. PLAN DE FINANCEMENT ═══
+  h1('4. Plan de financement');
+  h2('4.1 Coût total de l’opération');
+  var widths4 = [5800, 3500];
+  tableRow(['Poste', 'Montant'], widths4, { headerFill: true });
+  tableRow(["Prix d'achat du bien", fr(ACHAT) + ' €'], widths4, {});
+  tableRow(['Travaux de rénovation', fr(TRAVAUX) + ' €'], widths4, {});
+  tableRow(['Frais de notaire (≈ 7,5 %)', fr(FN) + ' €'], widths4, {});
+  tableRow(["Coût total de l'opération", fr(CAPITAL) + ' €'], widths4, { boldCol0: true, altFill: true });
+  L.push('\\pard\\sa200\\par');
+  h2('4.2 Conditions de financement (scénario modéré)');
+  bullet('Financement : 100 % par emprunt bancaire');
+  bullet('Taux d\'intérêt LCD : ' + (data.lcd.base.taux * 100).toFixed(2) + ' % sur ' + data.lcd.base.dur + ' ans');
+  bullet('Taux d\'intérêt LLD : ' + (data.lld.base.tauxLT * 100).toFixed(2) + ' % sur ' + data.lld.base.dureeLT + ' ans');
+  bullet('Mensualité (LCD) : ' + fr(data.lcd.base.mens) + ' € / mois');
+  pageBreak();
+
+  // ═══ 5. SCENARIOS LCD ═══
+  h1('5. Scénarios financiers — Location courte durée (LCD)');
+  para("Les revenus de location courte durée sont calculés sur la base de 220 jours de basse saison et 145 jours de haute saison par an pour les 7 T2 et le T3. Le scénario modéré reprend exactement les valeurs réglées dans le simulateur ; les scénarios pessimiste et optimiste appliquent une variation de ±20 % sur les prix et les taux d'occupation.");
+  scenarioTable('5.1 Résultats financiers', data.lcd, true);
+  chargesTable('5.2 Détail des charges (scénario modéré)', data.lcd.base, true);
+  pageBreak();
+
+  // ═══ 6. SCENARIOS LLD ═══
+  h1('6. Scénarios financiers — Location longue durée (LLD)');
+  para("Les revenus de location longue durée sont calculés sur la base des loyers mensuels réglés dans le simulateur pour les 7 T2 et le T3. Le scénario modéré reprend ces valeurs ; pessimiste et optimiste appliquent une variation de loyers et de taux d'occupation de ±15 à 20 %.");
+  scenarioTable('6.1 Résultats financiers', data.lld, false);
+  chargesTable('6.2 Détail des charges (scénario modéré)', data.lld.base, false);
+  pageBreak();
+
+  // ═══ 7. COMPARATIF ═══
+  h1('7. Comparatif LCD vs LLD');
+  para("Le tableau ci-dessous synthétise les écarts entre les deux modèles d'exploitation sur le scénario modéré.");
+  var widths7 = [4200, 2550, 2550];
+  tableRow(['', 'Location courte durée', 'Location longue durée'], widths7, { headerFill: true });
+  tableRow(['Revenus bruts (modéré)', fr(data.lcd.base.revTotal) + ' €/an', fr(data.lld.base.revLT) + ' €/an'], widths7, { boldCol0: true, altFill: true });
+  tableRow(['Charges totales (modéré)', fr(data.lcd.base.totalChg) + ' €/an', fr(data.lld.base.totalChgLT) + ' €/an'], widths7, { boldCol0: true, altFill: true });
+  tableRow(['Cash-flow net (modéré)', sign(data.lcd.base.cfAfterTax) + fr(data.lcd.base.cfAfterTax) + ' €/an', sign(data.lld.base.cfLTAfterTax) + fr(data.lld.base.cfLTAfterTax) + ' €/an'], widths7, { boldCol0: true, altFill: true });
+  tableRow(['Charge de travail', 'Très élevée (gestion quotidienne)', 'Faible (gestion ponctuelle)'], widths7, { boldCol0: true, altFill: true });
+  tableRow(['Risque de vacance', 'Saisonnier, lissé sur l’année', 'Faible une fois loué'], widths7, { boldCol0: true, altFill: true });
+  tableRow(['Flexibilité (usage perso, revente)', 'Élevée', 'Faible (bail engageant)'], widths7, { boldCol0: true, altFill: true });
+  L.push('\\pard\\sa200\\par');
+  pageBreak();
+
+  // ═══ 8. AMORTISSEMENT ═══
+  h1('8. Tableau d’amortissement du prêt sur ' + data.lcd.base.dur + ' ans');
+  para("Ce tableau illustre la répartition entre intérêts et capital remboursé sur la durée du prêt (basé sur les conditions LCD), à titre indicatif.");
+  var widths8 = [1700, 2400, 2400, 2400];
+  tableRow(['Année', 'Intérêts payés', 'Capital remboursé', 'Capital restant dû'], widths8, { headerFill: true });
+  [1, 5, 10, 15, data.amortTable.length].forEach(function(an) {
+    if (an > data.amortTable.length || an < 1) return;
+    var r = data.amortTable[an - 1];
+    tableRow(['Année ' + an, fr(r.interets) + ' €', fr(r.capital) + ' €', fr(r.solde) + ' €'], widths8, { boldCol0: true, altFill: true });
+  });
+  L.push('\\pard\\sa200\\par');
+  pageBreak();
+
+  // ═══ 9. FISCALITE ═══
+  h1('9. Fiscalité');
+  h2('9.1 Location courte durée — régime actuel : ' + fiscLabel(data.lcd.base.fiscOpt));
+  var widths9 = [5800, 3500];
+  tableRow(['Poste', 'Montant annuel'], widths9, { headerFill: true });
+  tableRow(['Revenus bruts', fr(data.lcd.base.revTotal) + ' €'], widths9, {});
+  tableRow(['Base imposable estimée', fr(data.lcd.base.baseImposable) + ' €'], widths9, {});
+  tableRow(['Impôt théorique', fr(data.lcd.base.impots) + ' €'], widths9, { boldCol0: true, altFill: true });
+  L.push('\\pard\\sa200\\par');
+  h2('9.2 Location longue durée — régime actuel : ' + fiscLabel(data.lld.base.fiscOptLT));
+  tableRow(['Poste', 'Montant annuel'], widths9, { headerFill: true });
+  tableRow(['Revenus bruts', fr(data.lld.base.revLT) + ' €'], widths9, {});
+  tableRow(['Base imposable estimée', fr(data.lld.base.baseImposableLT) + ' €'], widths9, {});
+  tableRow(['Impôt théorique', fr(data.lld.base.impotsLT) + ' €'], widths9, { boldCol0: true, altFill: true });
+  L.push('\\pard\\sa200\\par');
+  para("Au régime réel LMNP, l'amortissement et les intérêts d'emprunt permettent généralement de neutraliser une grande partie de l'impôt sur les revenus locatifs pendant 10 à 15 ans. Si les recettes de location meublée dépassent 23 000 €/an et représentent plus de la moitié des revenus du foyer fiscal, le statut bascule en loueur meublé professionnel (LMP).");
+  pageBreak();
+
+  // ═══ 10. RISQUES ═══
+  h1('10. Analyse des risques');
+  h2('10.1 Risques liés à l’exploitation');
+  bullet("Charge de travail élevée en autogestion LCD pour 8 logements, surtout en haute saison.");
+  bullet("Saisonnalité : certaines périodes creuses peuvent voir le taux d'occupation chuter.");
+  bullet("Dépendance aux plateformes (Airbnb, Booking) et à leurs commissions.");
+  h2('10.2 Risques financiers');
+  bullet("Variation des taux d'intérêt impactant directement la mensualité et le cash-flow.");
+  bullet("Travaux imprévus au-delà du budget de " + fr(TRAVAUX) + " € prévu.");
+  bullet("Vacance locative en LLD pouvant faire basculer le cash-flow en territoire négatif.");
+  h2('10.3 Mesures de mitigation');
+  bullet("Classement des meublés de tourisme pour optimiser la fiscalité dès le démarrage.");
+  bullet("Diversification des canaux de réservation pour réduire la dépendance aux commissions.");
+  bullet("Constitution d'une trésorerie de précaution équivalente à 2-3 mois de charges.");
+  pageBreak();
+
+  // ═══ 11. CONCLUSION ═══
+  h1('11. Conclusion et recommandations');
+  para("L'acquisition de ce domaine à Gréoux-les-Bains représente une opportunité d'investissement locatif portée par un marché thermal actif toute l'année et des équipements différenciants (piscine, pétanque, grand terrain).");
+  paraBold('En location courte durée (scénario modéré, conditions actuelles) : ', 'cash-flow net annuel de ' + sign(data.lcd.base.cfAfterTax) + fr(data.lcd.base.cfAfterTax) + ' € (' + sign(Math.round(data.lcd.base.cfAfterTax/12)) + fr(Math.round(data.lcd.base.cfAfterTax/12)) + ' €/mois), avec une fourchette de ' + sign(data.lcd.pess.cfAfterTax) + fr(data.lcd.pess.cfAfterTax) + ' € (pessimiste) à ' + sign(data.lcd.opti.cfAfterTax) + fr(data.lcd.opti.cfAfterTax) + ' € (optimiste).');
+  paraBold('En location longue durée (scénario modéré, conditions actuelles) : ', 'cash-flow net annuel de ' + sign(data.lld.base.cfLTAfterTax) + fr(data.lld.base.cfLTAfterTax) + ' € (' + sign(Math.round(data.lld.base.cfLTAfterTax/12)) + fr(Math.round(data.lld.base.cfLTAfterTax/12)) + ' €/mois), avec une fourchette de ' + sign(data.lld.pess.cfLTAfterTax) + fr(data.lld.pess.cfLTAfterTax) + ' € (pessimiste) à ' + sign(data.lld.opti.cfLTAfterTax) + fr(data.lld.opti.cfLTAfterTax) + ' € (optimiste).');
+  paraBold('Recommandation : ', "comparer les deux fourchettes ci-dessus au regard de la disponibilité réelle des porteurs de projet pour la gestion quotidienne. Une stratégie hybride (T3 en longue durée pour sécuriser un revenu de base, T2 en courte durée pour maximiser la rentabilité) reste une option intermédiaire à étudier.");
+  L.push('\\pard\\sb400\\fs18\\i\\cf1 Ce document a une vocation indicative, généré automatiquement à partir des paramètres du simulateur, et ne remplace pas l\'avis d\'un expert-comptable, d\'un courtier en financement ou d\'un conseiller en gestion de patrimoine.\\i0\\fs22\\par');
+
+  L.push('}');
+  return L.join('\n');
+}
+
+// ── déclenche la génération et le téléchargement du BP complet ──
+function generateFullBusinessPlan() {
+  var statusEls = [el('bpGenStatus'), el('bpGenStatusLT')].filter(Boolean);
+  statusEls.forEach(function(s) { s.className = 'bp-gen-status'; s.textContent = 'Génération en cours…'; });
+  try {
+    var data = collectFullBusinessPlanData();
+    var rtf = buildFullBusinessPlanRtf(data);
+    var rtfBlob = new Blob([rtf], { type: 'application/rtf;charset=utf-8' });
+    var rtfUrl = URL.createObjectURL(rtfBlob);
+    var rtfLink = document.createElement('a');
+    var fname = 'business-plan-greoux-' + new Date().toISOString().slice(0,10) + '.doc';
+    rtfLink.href = rtfUrl;
+    rtfLink.download = fname;
+    document.body.appendChild(rtfLink);
+    rtfLink.click();
+    document.body.removeChild(rtfLink);
+    URL.revokeObjectURL(rtfUrl);
+    statusEls.forEach(function(s) {
+      s.className = 'bp-gen-status ok';
+      s.textContent = '✓ Business plan généré : ' + fname + ' (ouvre directement dans Word)';
+    });
+  } catch (e) {
+    statusEls.forEach(function(s) {
+      s.className = 'bp-gen-status err';
+      s.textContent = '✗ Erreur lors de la génération : ' + e.message;
+    });
+  }
+}
+
+
+// ── rendu principal ──────────────────────────────────────────────
+function render() {
+  // Lire les prix individuels pour chaque T2
+  var prixT2BS = [];
+  var prixT2HS = [];
+  for (var i = 1; i <= 7; i++) {
+    prixT2BS.push(parseFloat(el('prixT2BS' + i).value));
+    prixT2HS.push(parseFloat(el('prixT2HS' + i).value));
+  }
+  
+  var pT3B = val('prixT3B');
+  var pT3H = val('prixT3H');
+  var tBS  = val('txBS') / 100;
+  var tHS  = val('txHS') / 100;
+  var taux = val('taux') / 100;
+  var dur  = val('duree');
+
+  // mise à jour labels sliders T3
+  el('valT3B').textContent  = pT3B + ' €';
+  el('valT3H').textContent  = pT3H + ' €';
+  el('valTxBS').textContent = Math.round(tBS * 100) + '%';
+  el('valTxHS').textContent = Math.round(tHS * 100) + '%';
+  el('valTaux').textContent = (taux * 100).toFixed(2) + '%';
+  el('valDuree').textContent = Math.round(dur) + ' ans';
+
+  // calculs revenus pour chaque T2
+  var revT2BS_total = 0;
+  var revT2HS_total = 0;
+  for (var i = 0; i < 7; i++) {
+    revT2BS_total += Math.round(prixT2BS[i] * JBS * tBS);
+    revT2HS_total += Math.round(prixT2HS[i] * JHS * tHS);
+  }
+  
+  var revT3BS = Math.round(pT3B * JBS * tBS);
+  var revT3HS = Math.round(pT3H * JHS * tHS);
+  var revTotal = revT2BS_total + revT2HS_total + revT3BS + revT3HS;
+
+  // calculs crédit
+  var mens     = Math.round(mensualite(CAPITAL, taux, dur));
+  var annCredit = mens * 12;
+  var taxeFonc  = val('charTaxe');
+  var assur     = val('charAssur');
+  var eau       = val('charEau');
+  var elec      = val('charElec');
+  var internet  = val('charInternet');
+  var entretien = val('charEnt');
+  var commRate  = val('charComm');
+  var platef    = Math.round(revTotal * commRate / 100);
+  var cfe       = val('charCfe');
+  var coutMenage = val('charMenage');
+  
+  // Calcul du ménage : nuits totales × coût par nuit
+  var nuitesT2BS = Math.round(7 * JBS * tBS);
+  var nuitesT2HS = Math.round(7 * JHS * tHS);
+  var nuitesT3BS = Math.round(JBS * tBS);
+  var nuitesT3HS = Math.round(JHS * tHS);
+  var nuitesTotales = nuitesT2BS + nuitesT2HS + nuitesT3BS + nuitesT3HS;
+  var nettoyageCount = Math.round(nuitesTotales / 3);
+  var chargeMenageTotal = Math.round(nettoyageCount * coutMenage);
+  
+  var totalChg  = annCredit + taxeFonc + assur + eau + elec + internet + entretien + platef + cfe + chargeMenageTotal;
+  var cf        = revTotal - totalChg;
+  var rendBrut  = (revTotal / CAPITAL * 100).toFixed(1);
+
+  var loyerT2_total = 0;
+  for (var i = 1; i <= 7; i++) {
+    loyerT2_total += val('loyerT2_' + i);
+  }
+  var loyerT3 = val('loyerT3');
+  var revLT = Math.round((loyerT2_total + loyerT3) * 12);
+  var tauxLT = val('tauxLT') / 100;
+  var dureeLT = val('dureeLT');
+  var mensLT = Math.round(mensualite(CAPITAL, tauxLT, dureeLT));
+  var annCreditLT = mensLT * 12;
+  var taxeFoncLT = val('charTaxeLT');
+  var assurLT = val('charAssurLT');
+  var eauLT = val('charEauLT');
+  var elecLT = val('charElecLT');
+  var internetLT = val('charInternetLT');
+  var entretienLT = val('charEntLT');
+  var cfeLT = val('charCfeLT');
+  var coproLT = val('charCoproLT');
+  var autresLT = val('charAutresLT');
+  var totalChgLT = annCreditLT + taxeFoncLT + assurLT + eauLT + elecLT + internetLT + entretienLT + cfeLT + coproLT + autresLT;
+  var cfLT = revLT - totalChgLT;
+  var rendBrutLT = (revLT / CAPITAL * 100).toFixed(1);
+  var fiscOptLT = el('fiscOptLT') ? el('fiscOptLT').value : 'micro';
+  var baseImposableLT = 0;
+  var impotsLT = 0;
+  var fiscalInfo = '';
+  if (fiscOptLT === 'micro') {
+    baseImposableLT = Math.round(revLT * 0.5);
+    impotsLT = Math.round(baseImposableLT * 0.25);
+    fiscalInfo = 'Micro-BIC : abattement 50 % → base imposable ' + fr(baseImposableLT) + ' € et impôt théorique ≈ ' + fr(impotsLT) + ' €.';
+  } else if (fiscOptLT === 'reel') {
+    var amortLT = Math.round((ACHAT + TRAVAUX) / 30);
+    var interetsLT = Math.round(CAPITAL * taux);
+    baseImposableLT = Math.max(0, revLT - amortLT - interetsLT - totalChgLT);
+    impotsLT = Math.round(baseImposableLT * 0.25);
+    fiscalInfo = 'Régime réel LMNP : base imposable ≈ ' + fr(baseImposableLT) + ' € (amort. ' + fr(amortLT) + ' + intérêts ' + fr(interetsLT) + ').';
+  } else {
+    var lmpEligible = revLT > 23000;
+    baseImposableLT = Math.max(0, revLT - totalChgLT);
+    impotsLT = lmpEligible ? Math.round(baseImposableLT * 0.20) : Math.round(baseImposableLT * 0.25);
+    fiscalInfo = lmpEligible ? 'LMP possible : impôt théorique ≈ ' + fr(impotsLT) + ' € selon votre situation.' : 'LMP possible mais à vérifier selon vos autres revenus.';
+  }
+  var cfLTAfterTax = cfLT - impotsLT;
+  var chargesTotalesLT = totalChgLT + impotsLT;
+
+  // ── KPI revenus ──
+  el('kpiR').innerHTML =
+    kpiHtml('7 T2 basse saison',  fr(revT2BS_total)  + ' €', Math.round(JBS*tBS) + ' nuits/unité/an', '') +
+    kpiHtml('7 T2 haute saison',  fr(revT2HS_total)  + ' €', Math.round(JHS*tHS) + ' nuits/unité/an', '') +
+    kpiHtml('1 T3 (annuel)',       fr(revT3BS+revT3HS) + ' €', 'basse + haute saison', '') +
+    kpiHtml('Total revenus bruts', fr(revTotal) + ' €', 'rendement brut ' + rendBrut + '%', 'acc');
+
+  // ── graphique revenus ──
+  drawBars('cRev', [
+    { label: 'T2 basse s.', value: revT2BS_total, color: '#b5d4f4' },
+    { label: 'T2 haute s.', value: revT2HS_total, color: '#2a78d6' },
+    { label: 'T3 basse s.', value: revT3BS, color: '#9FE1CB' },
+    { label: 'T3 haute s.', value: revT3HS, color: '#1baf7a' }
+  ]);
+
+  // ── table charges ──
+  el('tCharges').innerHTML =
+    tr2('Remboursement prêt (' + fr(mens) + ' €/mois)', fr(annCredit) + ' €/an') +
+    tr2('Taxe foncière', fr(taxeFonc) + ' €/an') +
+    tr2('Assurance PNO + emprunteur', fr(assur) + ' €/an') +
+    tr2('Eau', fr(eau) + ' €/an') +
+    tr2('Électricité', fr(elec) + ' €/an') +
+    tr2('Internet', fr(internet) + ' €/an') +
+    tr2('Entretien, petites réparations', fr(entretien) + ' €/an') +
+    tr2('Commissions plateformes (' + commRate.toFixed(1) + ' %)', fr(platef) + ' €/an') +
+    tr2('CFE (cotisation foncière)', fr(cfe) + ' €/an') +
+    tr2('Ménage (' + nettoyageCount + ' nettoyages × ' + coutMenage.toFixed(1) + ' €)', fr(chargeMenageTotal) + ' €/an') +
+    '<tr class="ttotal"><td>Total charges annuelles</td><td>' + fr(totalChg) + ' €/an</td></tr>';
+
+  el('tChargesLT').innerHTML =
+    tr2('Remboursement prêt (' + fr(mensLT) + ' €/mois)', fr(annCreditLT) + ' €/an') +
+    tr2('Taxe foncière', fr(taxeFoncLT) + ' €/an') +
+    tr2('Assurance propriétaire', fr(assurLT) + ' €/an') +
+    tr2('Eau', fr(eauLT) + ' €/an') +
+    tr2('Électricité', fr(elecLT) + ' €/an') +
+    tr2('Internet', fr(internetLT) + ' €/an') +
+    tr2('Entretien, réparations', fr(entretienLT) + ' €/an') +
+    tr2('Charges copropriété / syndic', fr(coproLT) + ' €/an') +
+    tr2('CFE', fr(cfeLT) + ' €/an') +
+    tr2('Autres charges', fr(autresLT) + ' €/an') +
+    '<tr class="ttotal"><td>Total charges annuelles</td><td>' + fr(totalChgLT) + ' €/an</td></tr>';
+
+  // ── KPI location longue durée ──
+  el('kpiLT').innerHTML =
+    kpiHtml('Revenus long terme', fr(revLT) + ' €', 'loyers annuels', '') +
+    kpiHtml('Charges totales', fr(chargesTotalesLT) + ' €', 'taxes + charges + impôt', '') +
+    kpiHtml('Impôt théorique', fr(impotsLT) + ' €', fiscOptLT === 'micro' ? 'micro-BIC' : (fiscOptLT === 'reel' ? 'LMNP réel' : 'LMP possible'), '') +
+    kpiHtml('Cash-flow net', sign(cfLTAfterTax) + fr(cfLTAfterTax) + ' €', sign(Math.round(cfLTAfterTax/12)) + fr(Math.round(cfLTAfterTax/12)) + ' €/mois', cfLTAfterTax >= 0 ? 'pos' : 'neg');
+
+  drawBars('cLT', [
+    { label: 'Revenus long terme', value: revLT, color: '#2a78d6' },
+    { label: 'Charges + impôts', value: chargesTotalesLT, color: '#888780' },
+    { label: 'Cash-flow net', value: Math.abs(cfLTAfterTax), color: cfLTAfterTax >= 0 ? '#1baf7a' : '#e34948' }
+  ]);
+
+  var vBoxLT;
+  if (cfLTAfterTax >= 5000)
+    vBoxLT = '<div class="box ok">La location longue durée dégage un cash-flow positif de <strong>' + fr(cfLTAfterTax) + ' €/an</strong> (' + fr(Math.round(cfLTAfterTax/12)) + ' €/mois).</div>';
+  else if (cfLTAfterTax >= 0)
+    vBoxLT = '<div class="box ok">La location longue durée est à l\'équilibre avec un cash-flow de <strong>' + fr(cfLTAfterTax) + ' €/an</strong>.</div>';
+  else
+    vBoxLT = '<div class="box warn">La location longue durée nécessite un effort de <strong>' + fr(Math.abs(Math.round(cfLTAfterTax/12))) + ' €/mois</strong>.</div>';
+  vBoxLT += '<div class="box info">' + fiscalInfo + '</div>';
+  el('verdictLT').innerHTML = vBoxLT;
+  el('monthlyNetLT').textContent = sign(Math.round(cfLTAfterTax/12)) + fr(Math.round(cfLTAfterTax/12)) + ' €/mois';
+  el('monthlyNetLTDetail').textContent = 'Régime : ' + (fiscOptLT === 'micro' ? 'Micro-BIC' : (fiscOptLT === 'reel' ? 'LMNP réel' : 'LMP possible')) + ' · Revenus annuels : ' + fr(revLT) + ' €';
+
+  // ── KPI bilan ──
+  var fiscOpt = el('fiscOpt') ? el('fiscOpt').value : 'micro';
+  var baseImposable = 0;
+  var impots = 0;
+  var fiscalInfo = '';
+  if (fiscOpt === 'micro') {
+    baseImposable = Math.round(revTotal * 0.5);
+    impots = Math.round(baseImposable * 0.25);
+    fiscalInfo = 'Micro-BIC : abattement 50 % → base imposable ' + fr(baseImposable) + ' € et impôt théorique ≈ ' + fr(impots) + ' €.';
+  } else if (fiscOpt === 'reel') {
+    var amort    = Math.round(CAPITAL / 30);
+    var interets = Math.round(CAPITAL * taux);
+    baseImposable = Math.max(0, revTotal - amort - interets - totalChg);
+    impots = Math.round(baseImposable * 0.25);
+    fiscalInfo = 'Régime réel LMNP : base imposable ≈ ' + fr(baseImposable) + ' € (amort. ' + fr(amort) + ' + intérêts ' + fr(interets) + ').';
+  } else {
+    var lmpEligible = revTotal > 23000;
+    baseImposable = Math.max(0, revTotal - totalChg);
+    impots = lmpEligible ? Math.round(baseImposable * 0.20) : Math.round(baseImposable * 0.25);
+    fiscalInfo = lmpEligible ? 'LMP possible : impôt théorique ≈ ' + fr(impots) + ' € selon votre situation.' : 'LMP possible mais à vérifier selon vos autres revenus.';
+  }
+  var cfAfterTax = cf - impots;
+  var chargesTotales = totalChg + impots;
+  var cfCls = cfAfterTax >= 0 ? 'pos' : 'neg';
+  el('kpiB').innerHTML =
+    kpiHtml('Investissement total', fr(CAPITAL) + ' €', 'achat + travaux + notaire', '') +
+    kpiHtml('Revenus bruts', fr(revTotal) + ' €/an', 'rendement brut ' + rendBrut + '%', '') +
+    kpiHtml('Charges totales', fr(chargesTotales) + ' €/an', 'crédit + impôt', '') +
+    kpiHtml('Cash-flow annuel', sign(cfAfterTax) + fr(cfAfterTax) + ' €', sign(Math.round(cfAfterTax/12)) + fr(Math.round(cfAfterTax/12)) + ' €/mois', cfCls);
+
+  // ── graphique bilan ──
+  var cfColor = cfAfterTax >= 0 ? '#1baf7a' : '#e34948';
+  drawHBars('cBilan', [
+    { label: 'Revenus bruts',   value: revTotal,   color: '#2a78d6' },
+    { label: 'Charges totales', value: chargesTotales,   color: '#888780' },
+    { label: 'Cash-flow net',   value: Math.abs(cfAfterTax), color: cfColor  }
+  ]);
+
+  // ── verdict ──
+  var vBox;
+  if (cfAfterTax >= 5000)
+    vBox = '<div class="box ok">Le projet dégage un cash-flow net positif de <strong>' + fr(cfAfterTax) + ' €/an</strong> (' + fr(Math.round(cfAfterTax/12)) + ' €/mois). Les locataires financent le bien — excellent projet !</div>';
+  else if (cfAfterTax >= 0)
+    vBox = '<div class="box ok">Le projet est à l\'équilibre avec un cash-flow net de <strong>' + fr(cfAfterTax) + ' €/an</strong>. Il s\'autofinance sans effort d\'épargne mensuel.</div>';
+  else
+    vBox = '<div class="box warn">Effort mensuel de <strong>' + fr(Math.abs(Math.round(cfAfterTax/12))) + ' €/mois</strong>. Augmentez les prix ou le taux d\'occupation pour atteindre l\'équilibre.</div>';
+  el('verdict').innerHTML = vBox;
+  if (el('monthlyNetBilan')) {
+    el('monthlyNetBilan').textContent = sign(Math.round(cfAfterTax/12)) + fr(Math.round(cfAfterTax/12)) + ' €/mois';
+    el('monthlyNetBilan').style.color = cfAfterTax >= 0 ? 'var(--success)' : 'var(--danger)';
+    el('monthlyNetBilanDetail').textContent = 'Régime : ' + (fiscOpt === 'micro' ? 'Micro-BIC' : (fiscOpt === 'reel' ? 'LMNP réel' : 'LMP possible')) + ' · Impôt théorique : ' + fr(impots) + ' €';
+  }
+
+  // ── fiscalité ──
+  var amort    = Math.round(CAPITAL / 30);
+  var interets = Math.round(CAPITAL * taux);
+  var autresChg = taxeFonc + assur + eau + elec + internet + entretien + platef + cfe;
+  var baseReel  = Math.max(0, revTotal - amort - interets - autresChg);
+  el('tFisca').innerHTML =
+    '<tr class="thead"><td colspan="2">Régime actuel : ' + (fiscOpt === 'micro' ? 'Micro-BIC' : (fiscOpt === 'reel' ? 'LMNP réel' : 'LMP possible')) + '</td></tr>' +
+    tr2('Revenus bruts', fr(revTotal) + ' €') +
+    tr2('Impôt théorique', fr(impots) + ' €') +
+    '<tr class="ttotal"><td>Cash-flow net annuel</td><td>' + sign(cfAfterTax) + fr(cfAfterTax) + ' €</td></tr>' +
+    '<tr class="thead"><td colspan="2">Micro-BIC meublé classé (revenus &lt; 83 600 €/an)</td></tr>' +
+    tr2('Revenus bruts', fr(revTotal) + ' €') +
+    tr2('Abattement forfaitaire 50 %', '− ' + fr(Math.round(revTotal * 0.5)) + ' €') +
+    '<tr class="ttotal"><td>Base imposable micro-BIC</td><td>' + fr(Math.round(revTotal * 0.5)) + ' €</td></tr>' +
+    '<tr class="thead"><td colspan="2">Régime réel LMNP (recommandé)</td></tr>' +
+    tr2('Revenus bruts', fr(revTotal) + ' €') +
+    tr2('Amortissement du bien (30 ans)', '− ' + fr(amort) + ' €/an') +
+    tr2('Intérêts d\'emprunt (année 1)', '− ' + fr(interets) + ' €') +
+    tr2('Autres charges déductibles', '− ' + fr(autresChg) + ' €') +
+    '<tr class="ttotal"><td>Base imposable au réel</td><td style="color:' + (baseReel === 0 ? 'var(--success)' : 'inherit') + '">' + (baseReel === 0 ? '≈ 0 € — déficit reportable' : fr(baseReel) + ' €') + '</td></tr>';
+}
+
+function kpiHtml(lbl, v, sub, cls) {
+  return '<div class="kpi ' + cls + '"><div class="kpi-lbl">' + lbl + '</div><div class="kpi-val">' + v + '</div><div class="kpi-sub">' + sub + '</div></div>';
+}
+function tr2(a, b) { return '<tr><td>' + a + '</td><td>' + b + '</td></tr>'; }
+
+function updateSliderLabel(id, value) {
+  var isCharge = id.indexOf('char') === 0;
+  if (id === 'txBS' || id === 'txHS' || id === 'occupationLT') {
+    if (el('val' + id)) el('val' + id).textContent = value + '%';
+  } else if (id === 'taux' || id === 'tauxLT') {
+    var labelId = id === 'taux' ? 'valTaux' : 'valTauxLT';
+    if (el(labelId)) el(labelId).textContent = parseFloat(value).toFixed(2) + '%';
+  } else if (id === 'duree' || id === 'dureeLT') {
+    var labelIdDuree = id === 'duree' ? 'valDuree' : 'valDureeLT';
+    if (el(labelIdDuree)) el(labelIdDuree).textContent = value + ' ans';
+  } else if (id === 'charMenage' || id === 'charMenageLT') {
+    var labelIdMenage = id === 'charMenage' ? 'valMenage' : 'valMenageLT';
+    if (el(labelIdMenage)) el(labelIdMenage).textContent = parseFloat(value).toFixed(1) + ' €';
+  } else if (id === 'charComm' || id === 'fraisGestionLT') {
+    var labelIdComm = id === 'charComm' ? 'valComm' : 'valFraisGestionLT';
+    if (el(labelIdComm)) el(labelIdComm).textContent = parseFloat(value).toFixed(1) + ' %';
+  } else if (isCharge) {
+    var suffix = id.replace('char', '');
+    if (el('val' + suffix)) el('val' + suffix).textContent = Math.round(parseFloat(value)).toLocaleString('fr-FR') + ' €';
+  } else if (id === 'loyerT3' || id.indexOf('loyerT2_') === 0) {
+    var label = el(labelIdForControl(id));
+    if (label) label.textContent = value + ' €';
+  } else {
+    var label = el('val' + id);
+    if (label) label.textContent = value + ' €';
+  }
+}
+
+function handleRangeInput(event) {
+  var input = event.target;
+  if (!input || input.tagName !== 'INPUT' || input.type !== 'range') return;
+  var id = input.id;
+  updateSliderLabel(id, input.value);
+  saveValue(id, input.value);
+  render();
+}
+
+// ── générer les sliders individuels pour chaque T2 ───────────────
+function initT2Sliders() {
+  var cardBS = el('t2-bs-card');
+  var cardHS = el('t2-hs-card');
+  var html_bs = '';
+  var html_hs = '';
+  
+  for (var i = 1; i <= 7; i++) {
+    var id_bs = 'prixT2BS' + i;
+    var id_hs = 'prixT2HS' + i;
+    html_bs += '<div class="srow"><span class="slbl">T2 #' + i + ' — basse saison</span><input type="range" min="1" max="120" value="65" step="1" id="' + id_bs + '"><span class="sval" id="val' + id_bs + '">65 €</span></div>';
+    html_hs += '<div class="srow"><span class="slbl">T2 #' + i + ' — haute saison</span><input type="range" min="1" max="200" value="120" step="1" id="' + id_hs + '"><span class="sval" id="val' + id_hs + '">120 €</span></div>';
+  }
+  
+  cardBS.innerHTML = html_bs;
+  cardHS.innerHTML = html_hs;
+  
+  for (var j = 1; j <= 7; j++) {
+    var id_bs = 'prixT2BS' + j;
+    var id_hs = 'prixT2HS' + j;
+    if (el('val' + id_bs)) el('val' + id_bs).textContent = el(id_bs).value + ' €';
+    if (el('val' + id_hs)) el('val' + id_hs).textContent = el(id_hs).value + ' €';
+  }
+}
+
+function initLongTermSliders() {
+  var card = el('lt-t2-card');
+  if (!card) return;
+  var html = '';
+  for (var i = 1; i <= 7; i++) {
+    var id = 'loyerT2_' + i;
+    var labelId = labelIdForControl(id);
+    html += '<div class="srow"><span class="slbl">T2 #' + i + ' — loyer mensuel</span><input type="range" min="500" max="1700" value="900" step="10" id="' + id + '"><span class="sval" id="' + labelId + '">900 €</span></div>';
+  }
+  card.innerHTML = html;
+  for (var j = 1; j <= 7; j++) {
+    var id = 'loyerT2_' + j;
+    var label = el(labelIdForControl(id));
+    if (label) label.textContent = el(id).value + ' €';
+  }
+}
+
+// ── écouter les sliders ─────────────────────────────────────────
+document.addEventListener('input', handleRangeInput, { passive: true });
+document.addEventListener('change', handleRangeInput, { passive: true });
+document.addEventListener('touchend', function(event) {
+  if (event.target && event.target.tagName === 'INPUT' && event.target.type === 'range') {
+    handleRangeInput(event);
+  }
+}, { passive: true });
+
+// ── écouter le redimensionnement (pour les canvas) ──────────────
+window.addEventListener('resize', deferredRender);
+window.addEventListener('orientationchange', function() {
+  setTimeout(deferredRender, 120);
+});
+
+// ── lancement ───────────────────────────────────────────────────
+initTabs();
+initT2Sliders();
+initLongTermSliders();
+loadAllValues();
+updateAllLabels();
+render();
+</script>
+</body>
+</html>
