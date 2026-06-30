@@ -285,6 +285,7 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 // ── constantes ──────────────────────────────────────────────────
 var ACHAT = 600000, TRAVAUX = 50000, FN = Math.round(600000 * 0.075);
@@ -1161,48 +1162,93 @@ function generateFullBusinessPlan() {
   }
 }
 
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function buildFullBusinessPlanPdfHtml(data) {
+  var lines = [];
+  lines.push('<div style="font-family:Arial, sans-serif; color:#111; line-height:1.45; max-width:900px; margin:0 auto; padding:24px;">');
+  lines.push('<div style="text-align:center; border-bottom:2px solid #1b5e9f; padding-bottom:18px; margin-bottom:24px;">');
+  lines.push('<h1 style="margin:0 0 8px; font-size:28px;">Business Plan</h1>');
+  lines.push('<div style="font-size:16px;">Acquisition et exploitation locative d’un domaine à Gréoux-les-Bains</div>');
+  lines.push('<div style="font-size:13px; color:#555; margin-top:6px;">Généré le ' + escapeHtml(data.generatedAt) + '</div>');
+  lines.push('</div>');
+
+  function section(title, body) {
+    lines.push('<section style="margin-bottom:24px;">');
+    lines.push('<h2 style="font-size:18px; margin:0 0 10px; color:#1b5e9f;">' + escapeHtml(title) + '</h2>');
+    lines.push('<div style="font-size:12px;">' + body + '</div>');
+    lines.push('</section>');
+  }
+
+  function para(text) { return '<p style="margin:0 0 8px;">' + escapeHtml(text) + '</p>'; }
+  function bulletList(items) {
+    return '<ul style="margin:0 0 8px 16px; padding:0;">' + items.map(function(item) { return '<li style="margin-bottom:5px;">' + escapeHtml(item) + '</li>'; }).join('') + '</ul>';
+  }
+
+  section('1. Résumé exécutif', para("Ce business plan présente l’acquisition et l’exploitation locative d’un domaine de 250 m² habitables sur un terrain de 5 000 m², situé à Gréoux-les-Bains, station thermale des Alpes-de-Haute-Provence. Le bien comprend 7 logements de type T2 et 1 logement de type T3, ainsi qu’une piscine et un terrain de pétanque.") + para('Montant de l’opération : ' + fr(ACHAT) + ' € (prix d’achat) + ' + fr(TRAVAUX) + ' € de travaux, financés intégralement par emprunt bancaire, soit un capital emprunté total de ' + fr(CAPITAL) + ' € frais de notaire inclus (≈ 7,5 %).'));
+  section('2. Présentation du projet', para('Deux modèles sont étudiés : la location courte durée (LCD) et la location longue durée (LLD). Le scénario modéré reprend les réglages actuels du simulateur. Les scénarios pessimiste et optimiste sont calculés automatiquement par variation de ±20 % sur les prix/loyers et le taux d’occupation.'));
+  section('3. Étude de marché', para('Le marché thermal de Gréoux-les-Bains constitue un atout majeur : forte saisonnalité, clientèle de passage, potentiel de valorisation du domaine et équipements différenciants (piscine, pétanque).'));
+  section('4. Financement et structure de l’opération', para('Le financement repose sur un emprunt bancaire couvrant achat et travaux, avec un taux et une durée définis dans le simulateur. Les charges opérationnelles et la fiscalité sont prises en compte dans les scénarios de cash-flow.'));
+  section('5. Scénarios LCD', bulletList([
+    'Scénario pessimiste : revenus bruts ' + fr(data.lcd.pess.revTotal) + ' € / cash-flow net ' + sign(data.lcd.pess.cfAfterTax) + fr(data.lcd.pess.cfAfterTax) + ' €',
+    'Scénario modéré : revenus bruts ' + fr(data.lcd.base.revTotal) + ' € / cash-flow net ' + sign(data.lcd.base.cfAfterTax) + fr(data.lcd.base.cfAfterTax) + ' €',
+    'Scénario optimiste : revenus bruts ' + fr(data.lcd.opti.revTotal) + ' € / cash-flow net ' + sign(data.lcd.opti.cfAfterTax) + fr(data.lcd.opti.cfAfterTax) + ' €'
+  ]));
+  section('6. Scénarios LLD', bulletList([
+    'Scénario pessimiste : revenus bruts ' + fr(data.lld.pess.revLT) + ' € / cash-flow net ' + sign(data.lld.pess.cfLTAfterTax) + fr(data.lld.pess.cfLTAfterTax) + ' €',
+    'Scénario modéré : revenus bruts ' + fr(data.lld.base.revLT) + ' € / cash-flow net ' + sign(data.lld.base.cfLTAfterTax) + fr(data.lld.base.cfLTAfterTax) + ' €',
+    'Scénario optimiste : revenus bruts ' + fr(data.lld.opti.revLT) + ' € / cash-flow net ' + sign(data.lld.opti.cfLTAfterTax) + fr(data.lld.opti.cfLTAfterTax) + ' €'
+  ]));
+  section('7. Comparatif LCD / LLD', para('Le LLD apporte davantage de stabilité de revenus et une structure de charges plus prévisible, tandis que la LCD peut générer un cash-flow supérieur en cas d’occupation soutenue et de tarifs élevés.'));
+  section('8. Amortissement', para('Le tableau d’amortissement est calculé à partir du montant de l’emprunt, du taux et de la durée définis dans le simulateur.'));
+  section('9. Fiscalité', para('Le statut fiscal retenu est ' + fiscLabel(val('fiscOpt')) + ' pour la LCD, et ' + fiscLabel(val('fiscOptLT')) + ' pour la LLD.'));
+  section('10. Risques financiers', bulletList([
+    'Variation des taux d’intérêt impactant directement la mensualité et le cash-flow.',
+    'Travaux imprévus au-delà du budget de ' + fr(TRAVAUX) + ' € prévu.',
+    'Vacance locative en LLD pouvant faire basculer le cash-flow en territoire négatif.'
+  ]));
+  section('11. Conclusion et recommandations', para('L’acquisition de ce domaine représente une opportunité d’investissement locatif portée par un marché thermal actif toute l’année et des équipements différenciants. Une stratégie hybride reste une option intermédiaire à étudier.'));
+  lines.push('<div style="margin-top:24px; font-size:11px; color:#555;">Ce document est une version PDF générée automatiquement à partir des paramètres du simulateur.</div>');
+  lines.push('</div>');
+  return lines.join('');
+}
+
 function generateFullBusinessPlanPdf() {
   var statusEl = el('bpPdfGenStatus');
   setBpStatus(statusEl, 'Génération en cours…');
   try {
-    if (!window.jspdf || !window.jspdf.jsPDF) {
+    if (!window.html2pdf) {
       throw new Error('La bibliothèque PDF n’est pas disponible.');
     }
     var data = collectFullBusinessPlanData();
-    var doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'a4' });
-    var pageWidth = doc.internal.pageSize.getWidth();
-    var margin = 40;
-    var y = 60;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.text('Business Plan - Domaine Gréoux-les-Bains', margin, y);
-    y += 30;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.text('Généré le ' + data.generatedAt, margin, y);
-    y += 24;
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Résumé', margin, y);
-    y += 16;
-
-    doc.setFont('helvetica', 'normal');
-    var summaryLines = [
-      'LCD - scénario modéré : cash-flow net annuel ' + sign(data.lcd.base.cfAfterTax) + fr(data.lcd.base.cfAfterTax) + ' €',
-      'LLD - scénario modéré : cash-flow net annuel ' + sign(data.lld.base.cfLTAfterTax) + fr(data.lld.base.cfLTAfterTax) + ' €',
-      'Revenus bruts LCD : ' + fr(data.lcd.base.revTotal) + ' €',
-      'Revenus bruts LLD : ' + fr(data.lld.base.revLT) + ' €',
-      'Fiscalité : ' + fiscLabel(val('fiscOpt')) + ' / ' + fiscLabel(val('fiscOptLT'))
-    ];
-    doc.text(summaryLines.join('\n'), margin, y, { maxWidth: pageWidth - margin * 2 });
-    y += 95;
-    doc.text('Ce document est une version PDF synthétique générée à partir du simulateur.', margin, y);
+    var wrapper = document.createElement('div');
+    wrapper.innerHTML = buildFullBusinessPlanPdfHtml(data);
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '-9999px';
+    wrapper.style.top = '0';
+    wrapper.style.width = '1000px';
+    document.body.appendChild(wrapper);
 
     var fname = 'business-plan-greoux-' + new Date().toISOString().slice(0,10) + '.pdf';
-    doc.save(fname);
-    setBpStatus(statusEl, '✓ PDF généré : ' + fname, 'ok');
+    window.html2pdf().set({
+      margin: [0.4, 0.4, 0.4, 0.4],
+      filename: fname,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    }).from(wrapper).save().then(function() {
+      wrapper.remove();
+      setBpStatus(statusEl, '✓ PDF généré : ' + fname, 'ok');
+    }).catch(function(err) {
+      wrapper.remove();
+      throw err;
+    });
   } catch (e) {
     setBpStatus(statusEl, '✗ Erreur lors de la génération du PDF : ' + e.message, 'err');
   }
