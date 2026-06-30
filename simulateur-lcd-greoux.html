@@ -101,7 +101,9 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border
           Génère un document Word complet (11 sections : résumé exécutif, présentation, étude de marché, financement, scénarios pessimiste / modéré / optimiste pour la LCD et la LLD, comparatif, amortissement, fiscalité, risques, conclusion) à partir des valeurs actuelles des curseurs. Le scénario <strong>modéré</strong> reprend vos réglages actuels (LCD et LLD) ; les scénarios <strong>pessimiste</strong> et <strong>optimiste</strong> sont calculés automatiquement en faisant varier prix/loyers et taux d'occupation de ±20 %.
         </p>
         <button type="button" class="bp-generate-btn" onclick="generateFullBusinessPlan()">📄 Générer le Business Plan complet (Word)</button>
+        <button type="button" class="bp-generate-btn" onclick="generateFullBusinessPlanPdf()" style="margin-top:10px;">📄 Générer le Business Plan complet (PDF)</button>
         <div id="bpGenStatus" class="bp-gen-status"></div>
+        <div id="bpPdfGenStatus" class="bp-gen-status"></div>
       </div>
     </div>
   </div>
@@ -1130,10 +1132,16 @@ function buildFullBusinessPlanRtf(data) {
   return L.join('\n');
 }
 
+function setBpStatus(statusEl, text, kind) {
+  if (!statusEl) return;
+  statusEl.className = 'bp-gen-status' + (kind ? ' ' + kind : '');
+  statusEl.textContent = text;
+}
+
 // ── déclenche la génération et le téléchargement du BP complet ──
 function generateFullBusinessPlan() {
   var statusEl = el('bpGenStatus');
-  if (statusEl) { statusEl.className = 'bp-gen-status'; statusEl.textContent = 'Génération en cours…'; }
+  setBpStatus(statusEl, 'Génération en cours…');
   try {
     var data = collectFullBusinessPlanData();
     var rtf = buildFullBusinessPlanRtf(data);
@@ -1147,15 +1155,56 @@ function generateFullBusinessPlan() {
     rtfLink.click();
     document.body.removeChild(rtfLink);
     URL.revokeObjectURL(rtfUrl);
-    statusEls.forEach(function(s) {
-      s.className = 'bp-gen-status ok';
-      s.textContent = '✓ Business plan généré : ' + fname + ' (ouvre directement dans Word)';
-    });
+    setBpStatus(statusEl, '✓ Business plan généré : ' + fname + ' (ouvre directement dans Word)', 'ok');
   } catch (e) {
-    statusEls.forEach(function(s) {
-      s.className = 'bp-gen-status err';
-      s.textContent = '✗ Erreur lors de la génération : ' + e.message;
-    });
+    setBpStatus(statusEl, '✗ Erreur lors de la génération : ' + e.message, 'err');
+  }
+}
+
+function generateFullBusinessPlanPdf() {
+  var statusEl = el('bpPdfGenStatus');
+  setBpStatus(statusEl, 'Génération en cours…');
+  try {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      throw new Error('La bibliothèque PDF n’est pas disponible.');
+    }
+    var data = collectFullBusinessPlanData();
+    var doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'a4' });
+    var pageWidth = doc.internal.pageSize.getWidth();
+    var margin = 40;
+    var y = 60;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text('Business Plan - Domaine Gréoux-les-Bains', margin, y);
+    y += 30;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.text('Généré le ' + data.generatedAt, margin, y);
+    y += 24;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Résumé', margin, y);
+    y += 16;
+
+    doc.setFont('helvetica', 'normal');
+    var summaryLines = [
+      'LCD - scénario modéré : cash-flow net annuel ' + sign(data.lcd.base.cfAfterTax) + fr(data.lcd.base.cfAfterTax) + ' €',
+      'LLD - scénario modéré : cash-flow net annuel ' + sign(data.lld.base.cfLTAfterTax) + fr(data.lld.base.cfLTAfterTax) + ' €',
+      'Revenus bruts LCD : ' + fr(data.lcd.base.revTotal) + ' €',
+      'Revenus bruts LLD : ' + fr(data.lld.base.revLT) + ' €',
+      'Fiscalité : ' + fiscLabel(val('fiscOpt')) + ' / ' + fiscLabel(val('fiscOptLT'))
+    ];
+    doc.text(summaryLines.join('\n'), margin, y, { maxWidth: pageWidth - margin * 2 });
+    y += 95;
+    doc.text('Ce document est une version PDF synthétique générée à partir du simulateur.', margin, y);
+
+    var fname = 'business-plan-greoux-' + new Date().toISOString().slice(0,10) + '.pdf';
+    doc.save(fname);
+    setBpStatus(statusEl, '✓ PDF généré : ' + fname, 'ok');
+  } catch (e) {
+    setBpStatus(statusEl, '✗ Erreur lors de la génération du PDF : ' + e.message, 'err');
   }
 }
 
